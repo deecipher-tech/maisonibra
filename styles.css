@@ -155,7 +155,7 @@ h3 {
 .nav-center a {
     position: relative;
     padding: 6px 0;
-    color: var(--muted);
+    color: var(--white);
     transition: color .3s;
 }
 
@@ -206,7 +206,7 @@ h3 {
     width: 22px;
     height: 22px;
     fill: none;
-    stroke: currentColor;
+    stroke: #fff;
     stroke-width: 1.4;
 }
 
@@ -660,6 +660,7 @@ h3 {
     align-items: flex-end;
     padding: 32px;
     overflow: hidden;
+    color: var(--white);
 }
 
 .cat .ph {
@@ -671,6 +672,15 @@ h3 {
 
 .cat:hover .ph {
     transform: scale(1.04);
+}
+
+.cat:after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0.808), transparent 100%);
+    pointer-events: none;
 }
 
 .cat > div:last-child {
@@ -685,7 +695,7 @@ h3 {
 .cat p {
     font: italic 400 20px var(--serif);
     margin: 6px 0 18px;
-    color: var(--muted);
+    color: var(--white);
 }
 
 .cat .link-light {
