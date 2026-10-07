@@ -7,9 +7,9 @@ const BEAUTY = [
   { name: '[PRODUCT NAME]', category: 'Makeup', desc: '[PRODUCT DESCRIPTION]', price: '[PRICE]', image: '' }
 ];
 const CATEGORIES = [
-  { title: 'Perfume', line: 'Discover your signature scent.', href: '#collection' },
-  { title: 'Skincare', line: 'Rituals for radiant skin.', href: '#beauty' },
-  { title: 'Makeup', line: 'Beauty with intention.', href: '#beauty' }
+  { title: 'Perfume', line: 'Discover your signature scent.', href: '#collection', image: './assets/perfume-ca.png' },
+  { title: 'Skincare', line: 'Rituals for radiant skin.', href: '#beauty', image: './assets/skincare -ca.png' },
+  { title: 'Makeup', line: 'Beauty with intention.', href: '#beauty', image: './assets/makeup-ca.png' }
 ];
 const JOURNAL = ['Fragrance', 'Skincare', 'Lifestyle'].map(c => ({ category: c, title: '[ARTICLE TITLE]', date: '[DATE]' }));
 
@@ -37,7 +37,8 @@ const card = p => `<article class="card reveal"><div class="media">${media(p)}
   <div class="card-info"><p class="card-cat">${esc(p.category)}</p><h3>${esc(p.name)}</h3><p class="card-desc">${esc(p.desc)}</p><p class="price">${esc(p.price)}</p></div></article>`;
 $('#signatureGrid').innerHTML = SIGNATURE.map(card).join('');
 $('#beautyGrid').innerHTML = BEAUTY.map(card).join('');
-$('#catGrid').innerHTML = CATEGORIES.map(c => `<a class="cat" href="${c.href}" aria-label="Explore ${c.title}"><div class="ph" role="img" aria-label="[CATEGORY IMAGE] ${c.title}"><span>[CATEGORY IMAGE]</span></div><div><h3>${c.title}</h3><p>${c.line}</p><span class="link-light">Explore</span></div></a>`).join('');
+$('#catGrid').innerHTML = CATEGORIES.map(c => `<a class="cat" href="${c.href}" aria-label="Explore ${c.title}"><div class="ph"><span>[CATEGORY IMAGE]</span>${c.image ? `<img src="${esc(c.image)}" alt="${esc(c.title)} collection" loading="lazy" decoding="async">` : ''}</div><div><h3>${c.title}</h3><p>${c.line}</p><span class="link-light">Explore</span></div></a>`).join('');
+document.querySelectorAll('#catGrid img').forEach(img => { const drop = () => img.remove(); img.addEventListener('error', drop); if (img.complete && !img.naturalWidth) drop(); });
 $('#journalGrid').innerHTML = JOURNAL.map(j => `<article class="post reveal"><div class="ph" role="img" aria-label="[EDITORIAL IMAGE] ${j.category}"><span>[EDITORIAL IMAGE]</span></div><p class="post-meta">${j.category} &nbsp;|&nbsp; ${j.date}</p><h3>${j.title}</h3><a class="read" href="#top" data-soon="Journal articles are coming soon.">Read article</a></article>`).join('');
 
 /* ---------- Bag, wishlist, placeholder links ---------- */
