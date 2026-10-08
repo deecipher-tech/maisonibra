@@ -1,0 +1,60 @@
+/* MAISON IBRA — skincare page styles. Loads after styles.css and shop.css (hero, crumbs, toolbar). */
+.page-hero .btn {
+    margin-top: 28px;
+}
+
+.toolbar .count {
+    text-align: left;
+}
+
+.toolbar .sort {
+    margin-left: auto;
+}
+
+.ritual {
+    list-style: none;
+    margin: 0 auto;
+    padding: 0;
+    max-width: 880px;
+}
+
+.ritual li {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 16px 24px;
+    padding: 28px 0;
+    border-top: 1px solid var(--line);
+}
+
+.ritual li:last-child {
+    border-bottom: 1px solid var(--line);
+}
+
+.step {
+    font: italic 500 clamp(40px, 6vw, 64px)/1 var(--serif);
+    color: var(--gold);
+}
+
+.ritual h3 {
+    font-size: clamp(28px, 3.4vw, 42px);
+    margin: 0 0 8px;
+}
+
+.ritual p {
+    color: var(--muted);
+    margin: 0;
+    max-width: 480px;
+}
+
+@media (min-width: 700px) {
+    .ritual li {
+        grid-template-columns: 120px 1fr;
+        align-items: center;
+    }
+}
+
+@media (min-width: 1000px) {
+    .flip .ph {
+        order: 2;
+    }
+}

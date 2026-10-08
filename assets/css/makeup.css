@@ -1,0 +1,4 @@
+/* MAISON IBRA — makeup page styles. Loads after styles.css and shop.css (hero, crumbs, toolbar). */
+.page-hero .btn{margin-top:28px}
+.toolbar .count{text-align:left}.toolbar .sort{margin-left:auto}
+.statement .label{margin-bottom:20px}

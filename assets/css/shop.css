@@ -1,0 +1,15 @@
+/* MAISON IBRA — shop page styles. Loads after styles.css and reuses its tokens (--bg, --gold, --hair, etc.). */
+.page-hero{max-width:var(--max);margin:auto;text-align:center;padding:clamp(40px,6vw,88px) var(--pad);background:radial-gradient(60% 90% at 72% 40%,rgba(120,80,25,.28),transparent 70%),radial-gradient(40% 60% at 10% 100%,rgba(60,40,15,.25),transparent),var(--bg)}
+.page-hero h1{font-size:clamp(44px,8vw,88px);line-height:1}
+.page-hero p{color:var(--muted);max-width:460px;margin:18px auto 0}
+.crumbs{display:flex;justify-content:center;gap:10px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:22px}
+.crumbs a:hover,.crumbs [aria-current]{color:var(--gold-hi)}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px;margin-bottom:clamp(28px,4vw,48px);padding-bottom:20px;border-bottom:1px solid var(--hair)}
+.filters{display:flex;gap:8px;flex:1 1 100%;overflow-x:auto;scrollbar-width:none;margin:0 calc(var(--pad) * -1);padding:0 var(--pad)}.filters::-webkit-scrollbar{display:none}
+.chip{flex:none;min-height:44px;padding:0 22px;background:none;border:1px solid var(--line);color:var(--ink);font-size:11px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;transition:background .3s,color .3s}
+.chip:hover{border-color:var(--ink)}.chip[aria-pressed=true]{background:var(--black);color:var(--white);border-color:var(--black)}
+.count{margin:0;font-size:12px;color:var(--muted);flex:1}
+.sort{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+.sort select{min-height:44px;background:transparent;border:1px solid var(--line);color:var(--ink);padding:0 12px;border-radius:0;font:inherit}
+.empty{text-align:center;color:var(--muted);padding:60px 0}
+@media(min-width:700px){.filters{flex:0 1 auto;margin:0;padding:0}.toolbar{flex-wrap:nowrap}.count{text-align:right}}

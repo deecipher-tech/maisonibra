@@ -1,0 +1,50 @@
+/* MAISON IBRA — perfume page styles. Loads after styles.css and shop.css (hero, crumbs, toolbar). */
+.page-hero .btn {
+    margin-top: 28px;
+}
+
+.toolbar .count {
+    text-align: left;
+}
+
+.toolbar .sort {
+    margin-left: auto;
+}
+
+.guide {
+    list-style: none;
+    margin: 0 auto;
+    padding: 0;
+    max-width: 1100px;
+    display: grid;
+    gap: 32px;
+}
+
+.guide li {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+}
+
+.guide .num {
+    font-size: 12px;
+    letter-spacing: .2em;
+    color: var(--gold);
+}
+
+.guide h3 {
+    font-size: clamp(28px, 3vw, 38px);
+    margin: 10px 0 12px;
+}
+
+.guide p {
+    color: var(--muted);
+    margin: 0;
+    max-width: 340px;
+}
+
+@media (min-width: 700px) {
+    .guide {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 40px;
+    }
+}
