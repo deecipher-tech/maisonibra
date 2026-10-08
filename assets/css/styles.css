@@ -405,7 +405,7 @@ h3 {
 
 .tile:first-child {
     order: 2;
-    aspect-ratio: 2/3;
+    aspect-ratio: 2/3.2;
 }
 
 .tile:nth-child(2) {
@@ -1051,6 +1051,10 @@ h3 {
     .tile {
         aspect-ratio: 2/3;
         font-size: 10px;
+    }
+    .tile:first-child {
+        order: 2;
+        aspect-ratio: 2/3.5;
     }
 }
 
