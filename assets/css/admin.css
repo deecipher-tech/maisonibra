@@ -775,6 +775,32 @@ details.grp .pform {
     margin: 0;
 }
 
+.login-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--hair);
+    border-radius: 8px;
+    background: var(--page);
+}
+
+.login-tab {
+    min-height: 38px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--soft);
+    cursor: pointer;
+}
+
+.login-tab[aria-selected=true] {
+    background: #fff;
+    color: var(--text);
+    box-shadow: 0 1px 8px rgba(0, 0, 0, .08);
+    font-weight: 600;
+}
+
 .btn.gold {
     background: linear-gradient(135deg, #f7dda2, #d7a74e);
     color: #1b160e;
