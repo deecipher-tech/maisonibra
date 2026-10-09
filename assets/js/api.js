@@ -33,7 +33,7 @@
    *
    * The base URL must match your actual server routing.
    */
-  const PRODUCTION_API_BASE = 'https://alimanschoolkeffi.com/DeeCommerce';
+  const PRODUCTION_API_BASE = 'https://alimanschoolkeffi.com/DeeCommerce/backend/public';
 
   /**
    * Automatically determine the local backend URL.
