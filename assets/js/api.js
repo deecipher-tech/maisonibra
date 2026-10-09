@@ -1,4 +1,3 @@
-
 /**
  * Maison Central API Client
  *
@@ -33,7 +32,7 @@
    *
    * The base URL must match your actual server routing.
    */
-  const PRODUCTION_API_BASE = 'https://alimanschoolkeffi.com/DeeCommerce/backend/public';
+  const PRODUCTION_API_BASE = 'https://alimanschoolkeffi.com/DeeCommerce';
 
   /**
    * Automatically determine the local backend URL.
@@ -174,12 +173,17 @@
 
     // Prevent unsafe methods from being silently issued without CSRF.
     const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
-    const csrfToken = getCsrfToken();
+    let csrfToken = getCsrfToken();
 
     if (!safeMethods.includes(method)) {
+      // First write request of a visit (e.g. login): fetch a token from the server first.
+      if (!csrfToken) {
+        csrfToken = await ensureCsrfToken();
+      }
+
       if (!csrfToken) {
         throw createApiError(
-          'Security token missing. Refresh the page and try again.'
+          'Could not get a security token from the server. Check the API URL, CORS and cookie settings, then try again.'
         );
       }
 
@@ -258,6 +262,15 @@
         }
       }
 
+      // Keep any token the server sends, even on an error response.
+      storeCsrfToken(data?.data ?? data);
+
+      const headerToken = response.headers.get('X-CSRF-Token');
+
+      if (headerToken) {
+        storeCsrfToken({ csrf_token: headerToken });
+      }
+
       if (!response.ok || data?.ok === false) {
         const message =
           data?.error?.message ||
@@ -311,6 +324,28 @@
   }
 
   /**
+   * Make sure a CSRF token exists before the first POST/PUT/DELETE.
+   * A guest has no token yet, so ask the server (GET auth/me) and store what it returns.
+   */
+  let csrfRequest = null;
+
+  function ensureCsrfToken() {
+    const existing = getCsrfToken();
+
+    if (existing) {
+      return Promise.resolve(existing);
+    }
+
+    if (!csrfRequest) {
+      csrfRequest = request('auth/me')
+        .catch(() => null)
+        .finally(() => { csrfRequest = null; });
+    }
+
+    return csrfRequest.then(getCsrfToken);
+  }
+
+  /**
    * Current storefront domain.
    * Retained for compatibility with your multi-store API.
    */
@@ -336,6 +371,8 @@
     baseUrl: API_BASE,
 
     request,
+
+    ensureCsrf: ensureCsrfToken,
 
     // Public storefront
     getStore: () =>
