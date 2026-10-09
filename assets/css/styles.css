@@ -1083,3 +1083,60 @@ h3 {
         transform: none;
     }
 }
+
+/* ---------- Pill navigation (index header) ---------- */
+.header--pill .icon-btn {
+    color: var(--gold-hi);
+}
+
+.header--pill .icon-btn:hover {
+    color: var(--white);
+}
+
+.header--pill .bag-count {
+    background: var(--gold-hi);
+    top: 3px;
+    right: 1px;
+}
+
+.nav-center.nav-pill a {
+    padding: 12px 28px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: .14em;
+    color: var(--ink);
+    transition: background .3s, color .3s;
+}
+
+.nav-center.nav-pill a:after {
+    display: none;
+}
+
+.nav-center.nav-pill a:hover {
+    color: var(--gold-hi);
+}
+
+.nav-center.nav-pill a[aria-current] {
+    background: linear-gradient(135deg, #f7dda2, #d7a74e);
+    color: #1b160e;
+    font-weight: 600;
+}
+
+@media (min-width: 1000px) {
+    .nav-center.nav-pill {
+        gap: 0;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .03);
+    }
+
+    .site-header.header--pill {
+        height: 62px;
+    }
+
+    .header--pill .logo img {
+        height: 58px;
+    }
+}

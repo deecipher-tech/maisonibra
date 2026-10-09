@@ -7,9 +7,9 @@ const BEAUTY = [
   { name: '[PRODUCT NAME]', category: 'Makeup', desc: '[PRODUCT DESCRIPTION]', price: '[PRICE]', image: '' }
 ];
 const CATEGORIES = [
-  { title: 'Perfume', line: 'Discover your signature scent.', href: '#collection', image: './assets/images/perfume-ca.png' },
-  { title: 'Skincare', line: 'Rituals for radiant skin.', href: '#beauty', image: './assets/images/skincare -ca.png' },
-  { title: 'Makeup', line: 'Beauty with intention.', href: '#beauty', image: './assets/images/makeup-ca.png' }
+  { title: 'Perfume', line: 'Discover your signature scent.', href: 'category1.html', image: './assets/images/perfume-ca.png' },
+  { title: 'Skincare', line: 'Rituals for radiant skin.', href: 'category2.html', image: './assets/images/skincare -ca.png' },
+  { title: 'Makeup', line: 'Beauty with intention.', href: 'category3.html', image: './assets/images/makeup-ca.png' }
 ];
 const JOURNAL = ['Fragrance', 'Skincare', 'Lifestyle'].map(c => ({ category: c, title: '[ARTICLE TITLE]', date: '[DATE]' }));
 

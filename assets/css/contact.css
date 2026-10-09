@@ -1,0 +1,21 @@
+/* MAISON IBRA — contact page styles. Loads after styles.css and shop.css (hero, crumbs). */
+.contact-grid{display:grid;gap:clamp(40px,6vw,72px);max-width:1200px;margin:auto}
+.contact-info h2{font-size:clamp(32px,4vw,48px);margin-bottom:24px}
+.contact-info dl{margin:0 0 28px}.contact-info dl div{padding:16px 0;border-top:1px solid var(--hair)}.contact-info dl div:last-child{border-bottom:1px solid var(--hair)}
+.contact-info dt{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}.contact-info dd{margin:0}
+.follow{color:var(--muted);font-size:14px}.follow a{border-bottom:1px solid var(--line)}.follow a:hover{color:var(--gold)}
+.contact-form{display:grid;gap:20px}
+.field label{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px}.field label span{color:var(--muted);text-transform:none;letter-spacing:0}
+.field input,.field select,.field textarea{width:100%;min-height:48px;background:transparent;border:1px solid var(--line);color:var(--ink);padding:12px 16px;border-radius:0;font:inherit}
+.field textarea{resize:vertical;min-height:140px}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--ink);outline-offset:1px}
+.field [aria-invalid=true]{border-color:#a8322d}.err{color:#a8322d;font-size:13px;margin:6px 0 0;min-height:0}
+.row{display:grid;gap:20px}.hp{position:absolute;left:-9999px}
+.contact-form .btn{justify-self:start}.status{margin:0;font-size:14px}.contact-form small{color:var(--muted);font-size:12px}
+.faq{max-width:820px;margin:auto;border-bottom:1px solid var(--hair)}
+.faq details{border-top:1px solid var(--hair)}
+.faq summary{list-style:none;cursor:pointer;padding:22px 0;font:500 clamp(20px,2.4vw,26px) var(--serif);display:flex;justify-content:space-between;gap:16px}
+.faq summary::-webkit-details-marker{display:none}.faq summary:after{content:"+";font:300 24px var(--sans)}.faq details[open] summary:after{content:"−"}
+.faq p{color:var(--muted);margin:0 0 22px;max-width:640px}
+@media(min-width:700px){.row{grid-template-columns:1fr 1fr}}
+@media(min-width:1000px){.contact-grid{grid-template-columns:.8fr 1.2fr}}
