@@ -1,5 +1,5 @@
 /* Product detail page. Uses helpers from script.js and data from products.js. */
-(function () {
+function renderProductDetail() {
   const root = $('#productRoot');
   const p = PRODUCTS.find(x => x.id === new URLSearchParams(location.search).get('id'));
   if (!p) {
@@ -59,4 +59,6 @@
   $('#related').hidden = false;
   dropBroken($('#relatedGrid'));
   observeReveals();
-})();
+}
+renderProductDetail();
+document.addEventListener('maison:products', renderProductDetail);

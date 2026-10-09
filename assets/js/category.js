@@ -2,10 +2,9 @@
    The product type comes from data-type on #categoryGrid. */
 if (typeof PRODUCTS === 'undefined') throw new Error('category.js needs products.js loaded first.');
 const cGrid = $('#categoryGrid'), cCount = $('#count'), cEmpty = $('#empty'), cSort = $('#sort');
-const cItems = PRODUCTS.filter(p => p.type === cGrid.dataset.type);
 
 function renderCategory() {
-  let list = cItems;
+  let list = PRODUCTS.filter(p => p.type === cGrid.dataset.type);
   const dir = { low: 1, high: -1 }[cSort.value];
   if (dir) list = [...list].sort((a, b) => (a.price == null) - (b.price == null) || dir * ((a.price ?? 0) - (b.price ?? 0)));
   cGrid.innerHTML = list.map(p => card(view(p))).join('');
@@ -15,4 +14,5 @@ function renderCategory() {
   observeReveals();
 }
 cSort.addEventListener('change', renderCategory);
+document.addEventListener('maison:products', renderCategory);
 renderCategory();

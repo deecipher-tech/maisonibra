@@ -1,6 +1,6 @@
 /* Admin dashboard (front-end only). Data lives in this browser's localStorage under ibra_* keys.
    TODO: replace store.get/store.set with calls to your backend. A real admin also needs server-side login. */
-if (!sessionStorage.getItem(SESSION_KEY)) location.replace('login.html');
+if (!sessionStorage.getItem(SESSION_KEY)) location.replace('../login.html');
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -41,12 +41,24 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') setSide(fals
 addEventListener('hashchange', route);
 function applyLogo() {
   const img = $('#sideLogo'), name = $('#sideName');
-  img.hidden = false; name.hidden = true;
-  img.onerror = () => { img.hidden = true; name.textContent = settings.general?.appName || 'MAISON IBRA'; name.hidden = false; };
-  const src = settings.general?.logo || './assets/images/logo.png';
+  img.hidden = false;
+  if (name) name.hidden = true;
+  img.onerror = () => {
+    img.hidden = true;
+    if (name) {
+      name.textContent = settings.general?.appName || 'MAISON IBRA';
+      name.hidden = false;
+    }
+  };
+  const src = settings.general?.logo || '../assets/images/logo.png';
   if (img.getAttribute('src') !== src) img.src = src; else if (img.complete && !img.naturalWidth) img.onerror();
 }
-$('#logout').addEventListener('click', () => { sessionStorage.removeItem(SESSION_KEY); location.replace('../login.html'); });
+$('#logout').addEventListener('click', async e => {
+  e.preventDefault();
+  try { if (window.MaisonApi) await MaisonApi.logout(); } catch (error) {}
+  sessionStorage.removeItem(SESSION_KEY);
+  location.replace('../login.html');
+});
 
 /* ---------- Generic form fields (settings + storefront) ---------- */
 const T = (k, label, o = {}) => ({ k, label, ...o });
@@ -153,7 +165,45 @@ $('#siteReset').addEventListener('click', () => { if (!confirm('Reset all storef
 /* ---------- Products ---------- */
 const KEY = 'ibra_admin_products';
 let items = store.get(KEY, null) ?? (typeof PRODUCTS === 'undefined' ? [] : PRODUCTS).map(p => ({ id: p.id, name: p.name, type: p.type, price: p.price, desc: p.desc, image: p.image, status: 'active' }));
+let apiProductsReady = false;
 const saveItems = () => store.set(KEY, items);
+const fromApiProduct = p => ({
+  id: p.slug,
+  apiId: p.id,
+  name: p.name,
+  type: p.category?.slug || 'perfume',
+  price: p.price,
+  desc: p.description || '',
+  image: p.image_url || '',
+  status: p.status || 'draft'
+});
+const toApiProduct = p => ({
+  name: p.name,
+  slug: p.id,
+  category_slug: p.type,
+  price: p.price ?? 0,
+  description: p.desc,
+  image_url: p.image,
+  status: p.status
+});
+async function loadAdminProducts() {
+  if (!window.MaisonApi) return;
+  try {
+    const data = await MaisonApi.adminProducts();
+    if (Array.isArray(data.products)) {
+      items = data.products.map(fromApiProduct);
+      apiProductsReady = true;
+      refresh();
+    }
+  } catch (error) {
+    if (error.status === 401) {
+      sessionStorage.removeItem(SESSION_KEY);
+      location.replace('../login.html');
+      return;
+    }
+    toast(error.message || 'Using local product data.');
+  }
+}
 function renderProducts() {
   const q = $('#q').value.trim().toLowerCase();
   const list = items.filter(p => !q || (p.name + CATS[p.type]).toLowerCase().includes(q));
@@ -171,19 +221,44 @@ function openDialog(p) {
 $('#addBtn').addEventListener('click', () => openDialog());
 $('#quickAdd').addEventListener('click', () => { location.hash = '#products'; openDialog(); });
 $('#cancelBtn').addEventListener('click', () => dlg.close());
-form.addEventListener('submit', e => {
+form.addEventListener('submit', async e => {
   e.preventDefault();
   const name = el('name').value.trim();
   if (!name) { el('name').setAttribute('aria-invalid', 'true'); $('#nameErr').textContent = 'Enter a product name.'; return el('name').focus(); }
   const price = el('price').value, id = el('id').value;
   const data = { name, type: el('type').value, price: price === '' ? null : Math.max(0, +price), desc: el('desc').value.trim(), image: el('image').value.trim(), status: el('status').value };
-  if (id) { Object.assign(items.find(p => p.id === id), data); toast('Product updated.'); } else { items.unshift({ id: `${data.type}-${Date.now().toString(36)}`, ...data }); toast('Product added.'); }
-  saveItems(); refresh(); dlg.close();
+  try {
+    if (window.MaisonApi && apiProductsReady) {
+      if (id) {
+        const existing = items.find(p => p.id === id);
+        const next = { ...existing, ...data };
+        await MaisonApi.updateProduct(existing.apiId, toApiProduct(next));
+        toast('Product updated.');
+      } else {
+        await MaisonApi.createProduct(toApiProduct({ id: `${data.type}-${Date.now().toString(36)}`, ...data }));
+        toast('Product added.');
+      }
+      await loadAdminProducts();
+    } else {
+      if (id) { Object.assign(items.find(p => p.id === id), data); toast('Product updated.'); } else { items.unshift({ id: `${data.type}-${Date.now().toString(36)}`, ...data }); toast('Product added.'); }
+      saveItems(); refresh();
+    }
+    dlg.close();
+  } catch (error) {
+    $('#nameErr').textContent = error.details?.name || error.details?.slug || error.message || 'Could not save product.';
+  }
 });
 $('#productRows').addEventListener('click', e => {
   const ed = e.target.closest('[data-edit]'), del = e.target.closest('[data-del]');
   if (ed) openDialog(items.find(p => p.id === ed.dataset.edit));
-  if (del && confirm('Delete this product? This cannot be undone.')) { items = items.filter(p => p.id !== del.dataset.del); saveItems(); refresh(); toast('Product deleted.'); }
+  if (del && confirm('Delete this product? This cannot be undone.')) {
+    const existing = items.find(p => p.id === del.dataset.del);
+    if (window.MaisonApi && apiProductsReady && existing?.apiId) {
+      MaisonApi.deleteProduct(existing.apiId).then(loadAdminProducts).then(() => toast('Product deleted.')).catch(error => toast(error.message || 'Could not delete product.'));
+    } else {
+      items = items.filter(p => p.id !== del.dataset.del); saveItems(); refresh(); toast('Product deleted.');
+    }
+  }
 });
 $('#q').addEventListener('input', renderProducts);
 $('#exportBtn').addEventListener('click', () => download('products.json', JSON.stringify(items, null, 2), 'application/json'));
@@ -232,4 +307,4 @@ $('#csvBtn').addEventListener('click', () => {
   download('orders.csv', ['Order,Customer,Date,Total,Status', ...acctList.map(o => [o.id, o.customer, o.date, o.total, o.status].map(q).join(','))].join('\n'), 'text/csv');
 });
 
-renderSettings(); renderSite(); refresh(); applyLogo(); route();
+renderSettings(); renderSite(); refresh(); applyLogo(); route(); loadAdminProducts();

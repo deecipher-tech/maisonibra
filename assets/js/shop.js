@@ -24,4 +24,5 @@ chips.forEach(c => c.addEventListener('click', () => {
   render();
 }));
 sortSel.addEventListener('change', render);
+document.addEventListener('maison:products', render);
 render();
