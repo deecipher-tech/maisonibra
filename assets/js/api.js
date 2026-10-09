@@ -339,10 +339,10 @@
 
     // Public storefront
     getStore: () =>
-      request(`public/store?${withDomain()}`),
+      request(`${withDomain()}`),
 
     getProducts: (params = {}) =>
-      request(`public/products?${withDomain(params)}`),
+      request(`${withDomain(params)}`),
 
     // Authentication
     login: (email, password) =>
