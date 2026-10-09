@@ -53,11 +53,15 @@
           <div class="bar">
             <label class="sr" for="q">Search products</label>
             <input id="q" type="search" placeholder="Search products" />
+            <select id="productCategoryFilter" aria-label="Filter by category"><option value="">All categories</option></select>
+            <select id="productStatusFilter" aria-label="Filter by status"><option value="">All statuses</option><option value="active">Active</option><option value="draft">Draft</option><option value="out_of_stock">Out of stock</option></select>
+            <select id="productSort" aria-label="Sort products"><option value="newest">Newest</option><option value="name">Name</option><option value="price-low">Price low</option><option value="price-high">Price high</option><option value="stock">Stock</option></select>
             <div class="bar-btns"><button class="btn btn-ghost" type="button" id="exportBtn">Export JSON</button><button class="btn" type="button" id="addBtn">Add product</button></div>
           </div>
           <div class="card table-card"><div class="table-wrap">
-            <table><thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Status</th><th><span class="sr">Actions</span></th></tr></thead><tbody id="productRows"></tbody></table>
+            <table><thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Featured</th><th>Created</th><th><span class="sr">Actions</span></th></tr></thead><tbody id="productRows"></tbody></table>
           </div><p class="empty" id="productsEmpty" hidden>No products found.</p></div>
+          <div class="pager" id="productPager" hidden><button class="btn btn-ghost" type="button" id="prevProducts">Previous</button><p class="hint" id="productPageText"></p><button class="btn btn-ghost" type="button" id="nextProducts">Next</button></div>
         </section>
 
         <section data-view="orders" aria-label="Orders" hidden>
@@ -109,24 +113,48 @@
   </div>
 
   <dialog id="productDialog" aria-labelledby="dlgTitle">
-    <form id="productForm" method="dialog" novalidate>
+    <form id="productForm" method="dialog" novalidate enctype="multipart/form-data">
       <h2 id="dlgTitle">Add product</h2>
       <input type="hidden" name="id" />
-      <div class="field"><label for="fName">Name</label><input id="fName" name="name" required aria-describedby="nameErr" /><p class="err" id="nameErr"></p></div>
+      <input type="hidden" name="keep_image_ids" />
+      <div class="field"><label for="fName">Product name</label><input id="fName" name="name" required aria-describedby="productErr" /></div>
       <div class="two">
-        <div class="field"><label for="fType">Category</label><select id="fType" name="type"><option value="perfume">Perfume</option><option value="skincare">Skincare</option><option value="makeup">Makeup</option></select></div>
-        <div class="field"><label for="fPrice">Price</label><input id="fPrice" name="price" type="number" min="0" step="1" inputmode="numeric" /></div>
+        <div class="field"><label for="fSlug">Product slug</label><input id="fSlug" name="slug" pattern="[a-z0-9-]+" /></div>
+        <div class="field"><label for="fType">Category</label><select id="fType" name="category_slug" required></select></div>
       </div>
-      <div class="field"><label for="fDesc">Description</label><textarea id="fDesc" name="desc" rows="3"></textarea></div>
       <div class="two">
-        <div class="field"><label for="fImage">Image path</label><input id="fImage" name="image" placeholder="./assets/images/…" /></div>
-        <div class="field"><label for="fStatus">Status</label><select id="fStatus" name="status"><option value="active">Active</option><option value="draft">Draft</option></select></div>
+        <div class="field"><label for="fPrice">Regular price</label><input id="fPrice" name="price" type="number" min="0" step="0.01" inputmode="decimal" required /></div>
+        <div class="field"><label for="fDiscount">Discount price</label><input id="fDiscount" name="compare_at_price" type="number" min="0" step="0.01" inputmode="decimal" /></div>
       </div>
-      <div class="dlg-actions"><button class="btn btn-ghost" type="button" id="cancelBtn">Cancel</button><button class="btn" type="submit">Save product</button></div>
+      <div class="two">
+        <div class="field"><label for="fStock">Stock quantity</label><input id="fStock" name="stock_quantity" type="number" min="0" step="1" inputmode="numeric" required /></div>
+        <div class="field"><label for="fStatus">Status</label><select id="fStatus" name="status"><option value="active">Active</option><option value="draft">Draft</option><option value="out_of_stock">Out of stock</option></select></div>
+      </div>
+      <div class="field"><label for="fShort">Short description</label><textarea id="fShort" name="short_description" rows="3" required></textarea></div>
+      <div class="field"><label for="fFull">Full description</label><textarea id="fFull" name="full_description" rows="5" required></textarea></div>
+      <div class="field">
+        <label for="fCover">Product cover image</label>
+        <input id="fCover" name="cover_image" type="file" accept="image/jpeg,image/png,image/webp" />
+        <div class="image-preview" id="coverPreview"></div>
+      </div>
+      <div class="field">
+        <label for="fAdditional">Additional images <span>(up to 3)</span></label>
+        <input id="fAdditional" name="additional_images[]" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+        <div class="image-preview" id="additionalPreview"></div>
+      </div>
+      <div class="field"><label class="switch"><input id="fFeatured" name="featured" type="checkbox" value="1"><span class="knob"></span><span>Featured product</span></label></div>
+      <div class="field">
+        <label>Product specifications</label>
+        <div class="spec-list" id="specList"></div>
+        <button class="link-btn" type="button" id="addSpec">Add specification</button>
+      </div>
+      <p class="err" id="productErr" role="alert"></p>
+      <div class="dlg-actions"><button class="btn btn-ghost" type="button" id="cancelBtn">Cancel</button><button class="btn" type="submit" id="saveProductBtn">Save product</button></div>
     </form>
   </dialog>
 
   <div class="toast" role="status" aria-live="polite"></div>
+  <script src="../assets/js/config.js"></script>
   <script src="../assets/js/api.js"></script>
   <script src="../assets/js/auth.js"></script>
   <script src="../assets/js/products.js"></script>
