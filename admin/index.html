@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Admin | MAISON IBRA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/css/admin.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="side" id="side" aria-label="Admin navigation">
+      <a class="side-brand" href="#dashboard" aria-label="MAISON IBRA admin">
+        <img id="sideLogo" src="../assets/images/logo.png" alt="" />
+      </a>
+      <nav class="side-nav">
+        <a href="#dashboard" data-nav="dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z"/></svg>Dashboard</a>
+        <a href="#products" data-nav="products"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/></svg>Products</a>
+        <a href="#orders" data-nav="orders"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg>Orders</a>
+        <a href="#customers" data-nav="customers"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20c.7-3.4 3-5.1 6.5-5.1s5.8 1.7 6.5 5.1"/></svg>Customers</a>
+        <a href="#account" data-nav="account"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Account</a>
+        <a href="#storefront" data-nav="storefront"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3zM3 9h18M7 14h5"/></svg>Storefront</a>
+        <a href="#settings" data-nav="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>Settings</a>
+        <a href="#" id="logout" data-nav="logout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg>Log out</a>
+      </nav>
+      <div class="side-foot"><a class="side-store" href="index.html">← View store</a></div>
+    </aside>
+    <div class="scrim" id="scrim" hidden></div>
+
+    <div class="main">
+      <header class="top">
+        <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h18"/></svg></button>
+        <h1 id="viewTitle">Dashboard</h1>
+      </header>
+
+      <main class="content" id="content">
+        <section data-view="dashboard" aria-label="Dashboard">
+          <div class="stats">
+            <div class="stat"><p>Products</p><strong id="sProducts">0</strong></div>
+            <div class="stat"><p>Active products</p><strong id="sActive">0</strong></div>
+            <div class="stat"><p>Orders</p><strong id="sOrders">0</strong></div>
+            <div class="stat"><p>Customers</p><strong id="sCustomers">0</strong></div>
+          </div>
+          <div class="card"><h2>Quick actions</h2>
+            <div class="actions-row"><button class="btn" type="button" id="quickAdd">Add a product</button><a class="btn btn-ghost" href="#storefront">Edit storefront</a><a class="btn btn-ghost" href="#account">View account</a></div>
+          </div>
+        </section>
+
+        <section data-view="products" aria-label="Products" hidden>
+          <div class="bar">
+            <label class="sr" for="q">Search products</label>
+            <input id="q" type="search" placeholder="Search products" />
+            <div class="bar-btns"><button class="btn btn-ghost" type="button" id="exportBtn">Export JSON</button><button class="btn" type="button" id="addBtn">Add product</button></div>
+          </div>
+          <div class="card table-card"><div class="table-wrap">
+            <table><thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Status</th><th><span class="sr">Actions</span></th></tr></thead><tbody id="productRows"></tbody></table>
+          </div><p class="empty" id="productsEmpty" hidden>No products found.</p></div>
+        </section>
+
+        <section data-view="orders" aria-label="Orders" hidden>
+          <div class="card table-card"><div class="table-wrap">
+            <table><thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Total</th><th>Status</th></tr></thead><tbody id="orderRows"></tbody></table>
+          </div><p class="empty" id="ordersEmpty">No orders yet. Orders will appear here once checkout is connected.</p></div>
+        </section>
+
+        <section data-view="customers" aria-label="Customers" hidden>
+          <div class="card table-card"><div class="table-wrap">
+            <table><thead><tr><th>Name</th><th>Email</th><th>Orders</th></tr></thead><tbody id="customerRows"></tbody></table>
+          </div><p class="empty" id="customersEmpty">No customers yet.</p></div>
+        </section>
+
+        <section data-view="account" aria-label="Account" hidden>
+          <div class="filters card">
+            <div class="field"><label for="range">Period</label>
+              <select id="range"><option value="today">Today</option><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="month">This month</option><option value="all">All time</option><option value="custom">Custom range</option></select></div>
+            <div class="field"><label for="from">From</label><input id="from" type="date" /></div>
+            <div class="field"><label for="to">To</label><input id="to" type="date" /></div>
+            <button class="btn btn-ghost" type="button" id="csvBtn">Export CSV</button>
+          </div>
+          <div class="stats">
+            <div class="stat"><p>Revenue</p><strong id="aRevenue">—</strong></div>
+            <div class="stat"><p>Orders</p><strong id="aOrders">0</strong></div>
+            <div class="stat"><p>Average order</p><strong id="aAvg">—</strong></div>
+            <div class="stat"><p>Customers</p><strong id="aCustomers">0</strong></div>
+          </div>
+          <div class="card"><h2>Revenue over time</h2><div class="chart" id="chart" role="img" aria-label="Revenue over time"></div><p class="hint" id="statusLine"></p></div>
+          <div class="card table-card mt"><div class="table-wrap">
+            <table><thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Total</th><th>Status</th></tr></thead><tbody id="acctRows"></tbody></table>
+          </div><p class="empty" id="acctEmpty">No orders in this period.</p></div>
+        </section>
+
+        <section data-view="storefront" aria-label="Storefront" hidden>
+          <p class="hint intro">Edit the text, images and limits shown on your public home page. Leave an image blank to keep the default.</p>
+          <form id="siteForm" novalidate>
+            <div class="savebar"><button class="btn btn-ghost" type="button" id="siteReset">Reset to defaults</button><button class="btn" type="submit">Save changes</button></div>
+            <div id="siteGroups"></div>
+          </form>
+        </section>
+
+        <section data-view="settings" aria-label="Settings" hidden>
+          <div class="tabs" id="settingsTabs" role="tablist" aria-label="Settings sections"></div>
+          <div id="settingsPanels"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <dialog id="productDialog" aria-labelledby="dlgTitle">
+    <form id="productForm" method="dialog" novalidate>
+      <h2 id="dlgTitle">Add product</h2>
+      <input type="hidden" name="id" />
+      <div class="field"><label for="fName">Name</label><input id="fName" name="name" required aria-describedby="nameErr" /><p class="err" id="nameErr"></p></div>
+      <div class="two">
+        <div class="field"><label for="fType">Category</label><select id="fType" name="type"><option value="perfume">Perfume</option><option value="skincare">Skincare</option><option value="makeup">Makeup</option></select></div>
+        <div class="field"><label for="fPrice">Price</label><input id="fPrice" name="price" type="number" min="0" step="1" inputmode="numeric" /></div>
+      </div>
+      <div class="field"><label for="fDesc">Description</label><textarea id="fDesc" name="desc" rows="3"></textarea></div>
+      <div class="two">
+        <div class="field"><label for="fImage">Image path</label><input id="fImage" name="image" placeholder="./assets/images/…" /></div>
+        <div class="field"><label for="fStatus">Status</label><select id="fStatus" name="status"><option value="active">Active</option><option value="draft">Draft</option></select></div>
+      </div>
+      <div class="dlg-actions"><button class="btn btn-ghost" type="button" id="cancelBtn">Cancel</button><button class="btn" type="submit">Save product</button></div>
+    </form>
+  </dialog>
+
+  <div class="toast" role="status" aria-live="polite"></div>
+  <script src="../assets/js/auth.js"></script>
+  <script src="../assets/js/products.js"></script>
+  <script src="../assets/js/admin.js"></script>
+</body>
+</html>

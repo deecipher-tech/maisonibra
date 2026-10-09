@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact | MAISON IBRA</title>
+  <meta name="description" content="Get in touch with MAISON IBRA." />
+  <link rel="canonical" href="https://[YOUR-DOMAIN]/contact.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Contact | MAISON IBRA" />
+  <meta property="og:description" content="Quiet luxury. Powerful presence." />
+  <meta property="og:url" content="https://[YOUR-DOMAIN]/contact.html" />
+  <meta property="og:image" content="https://[YOUR-DOMAIN]/assets/images/brand/og-image.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Contact | MAISON IBRA" />
+  <meta name="theme-color" content="#070605" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./assets/css/styles.css" />
+  <link rel="stylesheet" href="./assets/css/shop.css" />
+  <link rel="stylesheet" href="./assets/css/contact.css" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"MAISON IBRA","url":"https://[YOUR-DOMAIN]/","logo":"https://[YOUR-DOMAIN]/assets/images/brand/logo.png"}</script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="announce">Complimentary delivery on orders above ₦150,000</div>
+
+  <header class="site-header header--pill" id="top">
+    <button class="icon-btn menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="drawer">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h18M3 16h18"/></svg>
+    </button>
+    <a class="logo" href="#top" aria-label="MAISON IBRA home">
+      <img src="./assets/images/logo.png" alt="" />
+      <span class="logo-text">MAISON IBRA</span>
+    </a>
+    <nav class="nav-center nav-pill" aria-label="Primary">
+      <a href="./index.html">Home</a><a href="./shop.html">Shop</a><a href="./about.html">About</a><a href="./contact.html" aria-current="page">Contact</a>
+    </nav>
+    <div class="actions">
+      <button class="icon-btn" data-soon="Search is coming soon." aria-label="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 5 5"/></svg></button>
+      <button class="icon-btn hide-sm" data-soon="Accounts are coming soon." aria-label="Account"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20c.7-3.4 3-5.1 6.5-5.1s5.8 1.7 6.5 5.1"/></svg></button>
+      <button class="icon-btn bag-btn" data-soon="Your bag is ready for checkout integration." aria-label="Shopping bag, 0 items"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><span class="bag-count">0</span></button>
+    </div>
+  </header>
+
+  <div class="drawer" id="drawer" hidden>
+    <div class="drawer-bg" data-close></div>
+    <nav class="drawer-panel" aria-label="Mobile">
+      <button class="icon-btn close-btn" data-close aria-label="Close menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
+      <a href="shop.html">Shop</a><a href="perfumes.html">Perfume</a><a href="skincare.html">Skincare</a><a href="makeup.html">Makeup</a><a href="about.html">About</a><a href="contact.html" class="active">Contact</a>
+    </nav>
+  </div>
+
+  <main id="main">
+    <!-- <section class="page-hero band" aria-labelledby="h-contact">
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span aria-hidden="true">/</span><span aria-current="page">Contact</span></nav>
+      <h1 id="h-contact">Get in <span class="gold-text">Touch</span></h1>
+      <p>We would love to hear from you.</p>
+    </section> -->
+
+    <section class="section band light" aria-label="Contact">
+      <div class="contact-grid">
+        <div class="contact-info reveal">
+          <h2>Contact details</h2>
+          <dl>
+            <div><dt>Email</dt><dd>[EMAIL ADDRESS]</dd></div>
+            <div><dt>Phone / WhatsApp</dt><dd>[PHONE NUMBER]</dd></div>
+            <div><dt>Visit</dt><dd>[ADDRESS]</dd></div>
+            <div><dt>Hours</dt><dd>[OPENING HOURS]</dd></div>
+          </dl>
+          <p class="follow">Follow <a href="#top" data-soon="Add the Instagram URL.">Instagram</a> · <a href="#top" data-soon="Add the TikTok URL.">TikTok</a> · <a href="#top" data-soon="Add the Facebook URL.">Facebook</a></p>
+        </div>
+
+        <form class="contact-form reveal" id="contactForm" novalidate action="#" method="post">
+          <h2 class="sr">Send us a message</h2>
+          <div class="field"><label for="name">Name</label><input id="name" name="name" type="text" autocomplete="name" required aria-describedby="name-err" /><p class="err" id="name-err"></p></div>
+          <div class="field"><label for="cemail">Email</label><input id="cemail" name="email" type="email" autocomplete="email" required aria-describedby="cemail-err" /><p class="err" id="cemail-err"></p></div>
+          <div class="row">
+            <div class="field"><label for="phone">Phone <span>(optional)</span></label><input id="phone" name="phone" type="tel" autocomplete="tel" /></div>
+            <div class="field"><label for="topic">Topic</label><select id="topic" name="topic"><option>Order enquiry</option><option>Product enquiry</option><option>Shipping &amp; returns</option><option>Other</option></select></div>
+          </div>
+          <div class="field"><label for="message">Message</label><textarea id="message" name="message" rows="6" required aria-describedby="message-err"></textarea><p class="err" id="message-err"></p></div>
+          <div class="hp" aria-hidden="true"><label>Leave this empty <input name="website" type="text" tabindex="-1" autocomplete="off" /></label></div>
+          <button class="btn" type="submit">Send message</button>
+          <p class="status" id="contactStatus" role="status"></p>
+          <small>We use your details only to reply to your message. See our Privacy Policy.</small>
+        </form>
+      </div>
+    </section>
+
+    <section class="section band light ivory" id="faq" aria-labelledby="h-faq">
+      <header class="sec-head center reveal"><h2 id="h-faq">Frequently asked questions</h2></header>
+      <div class="faq reveal"><details><summary>How long does delivery take?</summary><p>Complimentary delivery on orders above ₦150,000. [DELIVERY TIMES AND DETAILS]</p></details><details><summary>What is your returns policy?</summary><p>[RETURNS POLICY]</p></details><details><summary>How can I track my order?</summary><p>[ORDER TRACKING DETAILS]</p></details><details><summary>Can I order a gift?</summary><p>[GIFT ORDER DETAILS]</p></details></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="foot-grid">
+      <div><h3>Shop</h3><a href="perfumes.html">Perfume</a><a href="skincare.html">Skincare</a><a href="makeup.html">Makeup</a><a href="shop.html">New Arrivals</a><a href="shop.html">Best Sellers</a></div>
+      <div><h3>About</h3><a href="about.html">Our Story</a><a href="index.html#journal">Journal</a><a href="contact.html">Contact</a><a href="contact.html#faq">FAQs</a></div>
+      <div><h3>Customer Care</h3><a href="#top" data-soon="Shipping policy coming soon.">Shipping</a><a href="#top" data-soon="Returns policy coming soon.">Returns</a><a href="#top" data-soon="Privacy policy coming soon.">Privacy Policy</a><a href="#top" data-soon="Terms coming soon.">Terms &amp; Conditions</a></div>
+      <div><h3>Follow</h3><a href="#top" data-soon="Add the Instagram URL.">Instagram</a><a href="#top" data-soon="Add the TikTok URL.">TikTok</a><a href="#top" data-soon="Add the Facebook URL.">Facebook</a></div>
+    </div>
+    <p class="copy">© <span id="year"></span> MAISON IBRA. All Rights Reserved.</p>
+  </footer>
+  <div class="toast" role="status" aria-live="polite"></div>
+  <script src="./assets/js/script.js"></script>
+  <script src="./assets/js/contact.js"></script>
+</body>
+</html>
