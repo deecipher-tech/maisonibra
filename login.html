@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Admin sign in | MAISON IBRA</title>
+  <title>Account | MAISON IBRA</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -13,16 +13,24 @@
 <body class="login-page">
   <main class="login">
     <p class="login-brand">MAISON IBRA</p>
-    <h1 id="loginTitle">Admin sign in</h1>
+    <h1 id="loginTitle">Sign in</h1>
     <p class="hint" id="loginHint"></p>
+    <div class="login-tabs" role="tablist" aria-label="Account mode">
+      <button type="button" class="login-tab" id="signinTab" data-mode="signin" aria-selected="true">Sign in</button>
+      <button type="button" class="login-tab" id="registerTab" data-mode="register" aria-selected="false">Create account</button>
+    </div>
     <form id="loginForm" novalidate>
+      <div class="field register-only" hidden><label for="name">Full name</label><input id="name" type="text" autocomplete="name" /></div>
+      <div class="field"><label for="email">Email address</label><input id="email" type="email" autocomplete="username" required /></div>
+      <div class="field register-only" hidden><label for="phone">Phone <span>(optional)</span></label><input id="phone" type="tel" autocomplete="tel" /></div>
       <div class="field"><label for="pw" id="pwLabel">Password</label><input id="pw" type="password" autocomplete="current-password" required /></div>
       <div class="field" id="confirmField" hidden><label for="pw2">Confirm password</label><input id="pw2" type="password" autocomplete="new-password" /></div>
       <p class="err" id="loginErr" role="alert"></p>
       <button class="btn gold" type="submit" id="loginBtn">Sign in</button>
     </form>
-    <a class="side-store" href="index.html">← Back to store</a>
+    <a class="side-store" href="index.html">&lt;- Back to store</a>
   </main>
+  <script src="./assets/js/api.js"></script>
   <script src="./assets/js/auth.js"></script>
   <script src="./assets/js/login.js"></script>
 </body>
