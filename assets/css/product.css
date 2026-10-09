@@ -21,3 +21,4 @@
 .pdp-empty{text-align:center;padding:clamp(40px,8vw,120px) 0}.pdp-empty p{color:var(--muted);margin:14px 0 28px}
 .media>a{display:block}.card h3 a:hover{color:var(--gold)}
 @media(min-width:1000px){.pdp{grid-template-columns:1.1fr .9fr;gap:clamp(48px,6vw,96px);align-items:start}.pinfo{position:sticky;top:100px}}
+.old-price{color:var(--muted);text-decoration:line-through;margin-right:10px}.stock-line{margin:0 0 18px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.08em}.buy .btn:disabled{opacity:.55;cursor:not-allowed}

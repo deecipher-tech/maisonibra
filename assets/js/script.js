@@ -89,7 +89,7 @@ const media = (p, ratio = 'ph-card') => p.image
 
 /* ---------- Render ---------- */
 const heart = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>';
-const link = (p, inner) => p.id ? `<a href="product.html?id=${encodeURIComponent(p.id)}">${inner}</a>` : inner;
+const link = (p, inner) => p.id ? `<a href="product.html?slug=${encodeURIComponent(p.id)}">${inner}</a>` : inner;
 const card = p => `<article class="card reveal"><div class="media">${link(p, media(p))}
   <button class="wish" aria-pressed="false" aria-label="Add ${esc(p.name)} to wishlist">${heart}</button>
   <button class="card-add" data-add="${esc(p.name)}">Add to bag</button></div>

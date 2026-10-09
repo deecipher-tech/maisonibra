@@ -299,6 +299,31 @@ h2 {
     background: var(--card);
 }
 
+.bar select {
+    min-height: 42px;
+    padding: 0 12px;
+    border: 1px solid rgba(0, 0, 0, .2);
+    border-radius: 8px;
+    background: var(--card);
+}
+
+.product-cell {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    min-width: 260px;
+}
+
+.product-cell img {
+    width: 54px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--hair);
+    background: #f4f1ec;
+    flex: none;
+}
+
 .table-card {
     padding: 0;
     overflow: hidden;
@@ -358,6 +383,19 @@ tr:last-child td {
     color: var(--soft);
 }
 
+.badge.out_of_stock {
+    background: #f8e3df;
+    color: var(--danger);
+}
+
+.pager {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+}
+
 .row-btns {
     display: flex;
     gap: 6px;
@@ -398,7 +436,7 @@ dialog {
     border: 0;
     border-radius: 12px;
     padding: 0;
-    width: min(560px, calc(100vw - 32px));
+    width: min(860px, calc(100vw - 32px));
     color: var(--text);
 }
 
@@ -451,6 +489,41 @@ dialog h2 {
 .two {
     display: grid;
     gap: 16px;
+}
+
+.image-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.preview-item {
+    display: grid;
+    gap: 6px;
+    width: 116px;
+    font-size: 11px;
+    color: var(--soft);
+}
+
+.preview-item img {
+    width: 116px;
+    height: 132px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--hair);
+    background: #f4f1ec;
+}
+
+.spec-list {
+    display: grid;
+    gap: 10px;
+}
+
+.spec-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 10px;
 }
 
 .dlg-actions {

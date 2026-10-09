@@ -1,4 +1,3 @@
-
 /**
  * Maison Central API Client
  *
@@ -29,11 +28,11 @@
    * https://api.yourdomain.com
    *
    * Or, if your API is served from this path:
-   * https://yourdomain.com/backend/public
+   * https://alimanschoolkeffi.com/DeeCommerce/backend/public
    *
    * The base URL must match your actual server routing.
    */
-  const PRODUCTION_API_BASE = 'https://alimanschoolkeffi.com/DeeCommerce/backend/public';
+  const PRODUCTION_API_BASE = '';
 
   /**
    * Automatically determine the local backend URL.
@@ -67,7 +66,22 @@
       localStorage.getItem('maison_api_base') ||
       getLocalBackendUrl();
 
-    const normalized = String(configured).trim().replace(/\/+$/, '');
+    let normalized = String(configured).trim().replace(/\/+$/, '');
+
+    // Be forgiving about how the address was typed (XAMPP paths often miss the scheme or contain spaces).
+    if (normalized.startsWith('//')) {
+      normalized = `${window.location.protocol}${normalized}`;
+    } else if (normalized.startsWith('/')) {
+      normalized = `${window.location.origin}${normalized}`;
+    } else if (normalized && !/^[a-z][a-z\d+.-]*:\/\//i.test(normalized)) {
+      normalized = `http://${normalized}`;
+    }
+
+    try {
+      normalized = encodeURI(decodeURI(normalized));
+    } catch {
+      // Leave as typed; the URL check below reports a clear error.
+    }
 
     if (!normalized) {
       throw new Error('Maison API base URL is not configured.');
@@ -79,11 +93,11 @@
     try {
       parsed = new URL(normalized);
     } catch {
-      throw new Error('Maison API base URL must be a valid absolute URL.');
+      throw new Error(`Maison API base URL must be a valid absolute URL (got "${configured}").`);
     }
 
     if (!['http:', 'https:'].includes(parsed.protocol)) {
-      throw new Error('Maison API base URL must use HTTP or HTTPS.');
+      throw new Error(`Maison API base URL must use HTTP or HTTPS (got "${configured}"). Open the site through XAMPP, e.g. http://localhost/MAISON%20IBRA/index.html, not as a file.`);
     }
 
     // Do not allow insecure HTTP APIs from an HTTPS page.
@@ -174,16 +188,24 @@
 
     // Prevent unsafe methods from being silently issued without CSRF.
     const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
-    const csrfToken = getCsrfToken();
+    // Sign-in endpoints are public: a guest has no token yet, and the server issues one after login.
+    const csrfExempt = ['auth/login', 'auth/register', 'auth/logout'].includes(endpoint);
+    let csrfToken = getCsrfToken();
 
     if (!safeMethods.includes(method)) {
-      if (!csrfToken) {
+      if (!csrfToken && !csrfExempt) {
+        csrfToken = await ensureCsrfToken();
+      }
+
+      if (!csrfToken && !csrfExempt) {
         throw createApiError(
-          'Security token missing. Refresh the page and try again.'
+          'Security token missing. Sign in again and retry.'
         );
       }
 
-      headers.set('X-CSRF-Token', csrfToken);
+      if (csrfToken) {
+        headers.set('X-CSRF-Token', csrfToken);
+      }
     }
 
     let body = options.body;
@@ -251,12 +273,15 @@
 
           if (text) {
             throw createApiError(
-              'The server returned an unexpected response.',
+              `The server did not return JSON (HTTP ${response.status}) for ${url}. Check the API base URL and that PHP is running.`,
               response.status
             );
           }
         }
       }
+
+      // Keep any token the server sends, even on an error response.
+      storeCsrfToken(data?.data ?? data);
 
       if (!response.ok || data?.ok === false) {
         const message =
@@ -311,6 +336,28 @@
   }
 
   /**
+   * Before the first write request of a visit, ask the server for a token (GET auth/me).
+   * A signed-in account's response carries csrf_token.
+   */
+  let csrfRequest = null;
+
+  function ensureCsrfToken() {
+    const existing = getCsrfToken();
+
+    if (existing) {
+      return Promise.resolve(existing);
+    }
+
+    if (!csrfRequest) {
+      csrfRequest = request('auth/me')
+        .catch(() => null)
+        .finally(() => { csrfRequest = null; });
+    }
+
+    return csrfRequest.then(getCsrfToken);
+  }
+
+  /**
    * Current storefront domain.
    * Retained for compatibility with your multi-store API.
    */
@@ -337,12 +384,17 @@
 
     request,
 
+    ensureCsrf: ensureCsrfToken,
+
     // Public storefront
     getStore: () =>
       request(`public/store?${withDomain()}`),
 
     getProducts: (params = {}) =>
       request(`public/products?${withDomain(params)}`),
+
+    getProduct: slug =>
+      request(`public/products/${encodeURIComponent(slug)}?${withDomain({})}`),
 
     // Authentication
     login: (email, password) =>
@@ -390,14 +442,18 @@
 
     updateProduct: (id, product) =>
       request(`admin/products/${encodeURIComponent(id)}`, {
-        method: 'PUT',
+        method: 'POST',
         body: product
       }),
 
-    deleteProduct: id =>
-      request(`admin/products/${encodeURIComponent(id)}`, {
-        method: 'DELETE'
-      }),
+    deleteProduct: id => {
+      const body = new FormData();
+      body.set('_method', 'DELETE');
+      return request(`admin/products/${encodeURIComponent(id)}`, {
+        method: 'POST',
+        body
+      });
+    },
 
     // Admin settings
     getSettings: () =>

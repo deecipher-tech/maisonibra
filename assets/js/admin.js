@@ -59,6 +59,14 @@ $('#logout').addEventListener('click', async e => {
   sessionStorage.removeItem(SESSION_KEY);
   location.replace('../login.html');
 });
+async function ensureAdminSession() {
+  if (!window.MaisonApi) return;
+  const data = await MaisonApi.me();
+  if (data.account?.type !== 'admin') {
+    sessionStorage.removeItem(SESSION_KEY);
+    location.replace('../login.html');
+  }
+}
 
 /* ---------- Generic form fields (settings + storefront) ---------- */
 const T = (k, label, o = {}) => ({ k, label, ...o });
@@ -164,31 +172,39 @@ $('#siteReset').addEventListener('click', () => { if (!confirm('Reset all storef
 
 /* ---------- Products ---------- */
 const KEY = 'ibra_admin_products';
-let items = store.get(KEY, null) ?? (typeof PRODUCTS === 'undefined' ? [] : PRODUCTS).map(p => ({ id: p.id, name: p.name, type: p.type, price: p.price, desc: p.desc, image: p.image, status: 'active' }));
+let items = [];
+let categories = [];
+let productPage = 1;
+const PAGE_SIZE = 10;
 let apiProductsReady = false;
 const saveItems = () => store.set(KEY, items);
 const fromApiProduct = p => ({
   id: p.slug,
   apiId: p.id,
+  slug: p.slug,
   name: p.name,
   type: p.category?.slug || 'perfume',
   price: p.price,
-  desc: p.description || '',
+  compareAtPrice: p.compare_at_price,
+  desc: p.short_description || p.description || '',
+  fullDesc: p.full_description || '',
   image: p.image_url || '',
+  images: p.images || [],
+  stock: Number(p.stock_quantity || 0),
+  featured: Boolean(p.featured),
+  specs: p.specifications || [],
+  createdAt: p.created_at || '',
+  updatedAt: p.updated_at || '',
   status: p.status || 'draft'
 });
-const toApiProduct = p => ({
-  name: p.name,
-  slug: p.id,
-  category_slug: p.type,
-  price: p.price ?? 0,
-  description: p.desc,
-  image_url: p.image,
-  status: p.status
-});
+const statusLabel = s => ({ active: 'Active', draft: 'Draft', out_of_stock: 'Out of stock' }[s] || s);
+const slugifyText = s => String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 async function loadAdminProducts() {
   if (!window.MaisonApi) return;
   try {
+    const catData = await MaisonApi.adminCategories();
+    categories = catData.categories || [];
+    renderCategoryOptions();
     const data = await MaisonApi.adminProducts();
     if (Array.isArray(data.products)) {
       items = data.products.map(fromApiProduct);
@@ -204,48 +220,121 @@ async function loadAdminProducts() {
     toast(error.message || 'Using local product data.');
   }
 }
-function renderProducts() {
+function renderCategoryOptions() {
+  const opts = categories.map(c => `<option value="${esc(c.slug)}">${esc(c.name)}</option>`).join('');
+  $('#fType').innerHTML = opts;
+  $('#productCategoryFilter').innerHTML = '<option value="">All categories</option>' + opts;
+}
+function filteredProducts() {
   const q = $('#q').value.trim().toLowerCase();
-  const list = items.filter(p => !q || (p.name + CATS[p.type]).toLowerCase().includes(q));
-  $('#productRows').innerHTML = list.map(p => `<tr><td><div class="pname">${esc(p.name)}</div><div class="pdesc">${esc(p.desc)}</div></td><td>${esc(CATS[p.type])}</td><td>${fmt(p.price)}</td><td><span class="badge ${p.status}">${p.status === 'active' ? 'Active' : 'Draft'}</span></td><td><div class="row-btns"><button class="link-btn" data-edit="${esc(p.id)}" aria-label="Edit ${esc(p.name)}">Edit</button><button class="link-btn del" data-del="${esc(p.id)}" aria-label="Delete ${esc(p.name)}">Delete</button></div></td></tr>`).join('');
+  const cat = $('#productCategoryFilter').value;
+  const status = $('#productStatusFilter').value;
+  let list = items.filter(p =>
+    (!q || (p.name + ' ' + p.desc + ' ' + p.type).toLowerCase().includes(q)) &&
+    (!cat || p.type === cat) &&
+    (!status || p.status === status)
+  );
+  const sort = $('#productSort').value;
+  list = [...list].sort((a, b) => {
+    if (sort === 'name') return a.name.localeCompare(b.name);
+    if (sort === 'price-low') return Number(a.price || 0) - Number(b.price || 0);
+    if (sort === 'price-high') return Number(b.price || 0) - Number(a.price || 0);
+    if (sort === 'stock') return Number(b.stock || 0) - Number(a.stock || 0);
+    return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+  });
+  return list;
+}
+function renderProducts() {
+  const list = filteredProducts();
+  const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  productPage = Math.min(productPage, pages);
+  const pageItems = list.slice((productPage - 1) * PAGE_SIZE, productPage * PAGE_SIZE);
+  $('#productRows').innerHTML = pageItems.map(p => `<tr><td><div class="product-cell"><img src="${esc(p.image)}" alt="" onerror="this.hidden=true"><div><div class="pname">${esc(p.name)}</div><div class="pdesc">${esc(p.desc)}</div></div></div></td><td>${esc(CATS[p.type] || p.type)}</td><td>${fmt(p.price)}${p.compareAtPrice ? `<div class="pdesc">Sale ${fmt(p.compareAtPrice)}</div>` : ''}</td><td>${esc(p.stock)}</td><td><span class="badge ${p.status}">${esc(statusLabel(p.status))}</span></td><td>${p.featured ? 'Yes' : 'No'}</td><td>${esc((p.createdAt || '').slice(0, 10))}</td><td><div class="row-btns"><button class="link-btn" data-edit="${esc(p.id)}" aria-label="Edit ${esc(p.name)}">Edit</button><button class="link-btn del" data-del="${esc(p.id)}" aria-label="Delete ${esc(p.name)}">Delete</button></div></td></tr>`).join('');
   $('#productsEmpty').hidden = list.length > 0;
+  $('#productPager').hidden = list.length <= PAGE_SIZE;
+  $('#productPageText').textContent = `Page ${productPage} of ${pages}`;
+  $('#prevProducts').disabled = productPage <= 1;
+  $('#nextProducts').disabled = productPage >= pages;
 }
 const dlg = $('#productDialog'), form = $('#productForm');
 const el = n => form.elements.namedItem(n); // form.name / form.id would return the <form>'s own attributes
+let currentImages = [];
+function specRow(spec = {}) {
+  return `<div class="spec-row"><input data-spec-key value="${esc(spec.key || '')}" placeholder="Spec name"><input data-spec-value value="${esc(spec.value || '')}" placeholder="Value"><button type="button" class="link-btn del" data-rmspec>Remove</button></div>`;
+}
+function renderSpecs(specs = []) {
+  $('#specList').innerHTML = (specs.length ? specs : [{}]).map(specRow).join('');
+}
+function renderImagePreviews(p) {
+  $('#coverPreview').innerHTML = p?.image ? `<div class="preview-item"><img src="${esc(p.image)}" alt=""><span>Current cover</span></div>` : '';
+  currentImages = (p?.images || []).map(img => ({ ...img, keep: true }));
+  $('#additionalPreview').innerHTML = currentImages.map(img => `<div class="preview-item" data-image-id="${img.id}"><img src="${esc(img.url || img.image_url)}" alt=""><button type="button" class="link-btn del" data-remove-image="${img.id}">Remove</button></div>`).join('');
+  el('keep_image_ids').value = currentImages.filter(i => i.keep).map(i => i.id).join(',');
+}
+function previewFiles(input, host, append = false) {
+  const files = [...input.files].slice(0, 3);
+  const html = files.map(file => `<div class="preview-item"><img src="${esc(URL.createObjectURL(file))}" alt=""><span>${esc(file.name)}</span></div>`).join('');
+  host.innerHTML = append ? host.innerHTML + html : html;
+}
 function openDialog(p) {
-  form.reset(); $('#nameErr').textContent = ''; el('name').removeAttribute('aria-invalid');
+  form.reset(); $('#productErr').textContent = ''; el('name').removeAttribute('aria-invalid');
   $('#dlgTitle').textContent = p ? 'Edit product' : 'Add product'; el('id').value = p?.id || '';
-  if (p) { el('name').value = p.name; el('type').value = p.type; el('price').value = p.price ?? ''; el('desc').value = p.desc || ''; el('image').value = p.image || ''; el('status').value = p.status; }
+  if (p) {
+    el('name').value = p.name; el('slug').value = p.slug || p.id; el('category_slug').value = p.type;
+    el('price').value = p.price ?? ''; el('compare_at_price').value = p.compareAtPrice ?? '';
+    el('stock_quantity').value = p.stock ?? 0; el('short_description').value = p.desc || '';
+    el('full_description').value = p.fullDesc || ''; el('status').value = p.status;
+    el('featured').checked = p.featured;
+  }
+  renderSpecs(p?.specs || []);
+  renderImagePreviews(p);
   dlg.showModal(); el('name').focus();
 }
 $('#addBtn').addEventListener('click', () => openDialog());
 $('#quickAdd').addEventListener('click', () => { location.hash = '#products'; openDialog(); });
 $('#cancelBtn').addEventListener('click', () => dlg.close());
+el('name').addEventListener('input', () => { if (!el('id').value || !el('slug').value) el('slug').value = slugifyText(el('name').value); });
+$('#addSpec').addEventListener('click', () => $('#specList').insertAdjacentHTML('beforeend', specRow()));
+$('#specList').addEventListener('click', e => { if (e.target.closest('[data-rmspec]')) e.target.closest('.spec-row').remove(); });
+$('#additionalPreview').addEventListener('click', e => {
+  const btn = e.target.closest('[data-remove-image]');
+  if (!btn) return;
+  currentImages = currentImages.map(img => img.id === +btn.dataset.removeImage ? { ...img, keep: false } : img);
+  el('keep_image_ids').value = currentImages.filter(i => i.keep).map(i => i.id).join(',');
+  btn.closest('.preview-item').remove();
+});
+$('#fCover').addEventListener('change', e => previewFiles(e.target, $('#coverPreview')));
+$('#fAdditional').addEventListener('change', e => {
+  const kept = currentImages.filter(i => i.keep).length;
+  if (kept + e.target.files.length > 3) { e.target.value = ''; return $('#productErr').textContent = 'Only three additional images are allowed.'; }
+  previewFiles(e.target, $('#additionalPreview'), true);
+});
 form.addEventListener('submit', async e => {
   e.preventDefault();
   const name = el('name').value.trim();
-  if (!name) { el('name').setAttribute('aria-invalid', 'true'); $('#nameErr').textContent = 'Enter a product name.'; return el('name').focus(); }
-  const price = el('price').value, id = el('id').value;
-  const data = { name, type: el('type').value, price: price === '' ? null : Math.max(0, +price), desc: el('desc').value.trim(), image: el('image').value.trim(), status: el('status').value };
+  const id = el('id').value, existing = items.find(p => p.id === id);
+  $('#productErr').textContent = '';
+  if (!name) { el('name').setAttribute('aria-invalid', 'true'); $('#productErr').textContent = 'Enter a product name.'; return el('name').focus(); }
+  if (!id && !el('cover_image').files[0]) return $('#productErr').textContent = 'Product cover image is required.';
+  const formData = new FormData(form);
+  const specs = $$('.spec-row').map(row => ({ key: row.querySelector('[data-spec-key]').value.trim(), value: row.querySelector('[data-spec-value]').value.trim() })).filter(s => s.key && s.value);
+  formData.set('specifications', JSON.stringify(specs));
   try {
     if (window.MaisonApi && apiProductsReady) {
       if (id) {
-        const existing = items.find(p => p.id === id);
-        const next = { ...existing, ...data };
-        await MaisonApi.updateProduct(existing.apiId, toApiProduct(next));
+        formData.set('_method', 'PUT');
+        await MaisonApi.updateProduct(existing.apiId, formData);
         toast('Product updated.');
       } else {
-        await MaisonApi.createProduct(toApiProduct({ id: `${data.type}-${Date.now().toString(36)}`, ...data }));
+        await MaisonApi.createProduct(formData);
         toast('Product added.');
       }
       await loadAdminProducts();
-    } else {
-      if (id) { Object.assign(items.find(p => p.id === id), data); toast('Product updated.'); } else { items.unshift({ id: `${data.type}-${Date.now().toString(36)}`, ...data }); toast('Product added.'); }
-      saveItems(); refresh();
-    }
+    } else throw new Error('API product management is not available.');
     dlg.close();
   } catch (error) {
-    $('#nameErr').textContent = error.details?.name || error.details?.slug || error.message || 'Could not save product.';
+    const d = error.details || {};
+    $('#productErr').textContent = d.name || d.slug || d.cover_image || d.short_description || d.full_description || d.price || d.compare_at_price || d.stock_quantity || d.additional_images || error.message || 'Could not save product.';
   }
 });
 $('#productRows').addEventListener('click', e => {
@@ -254,13 +343,19 @@ $('#productRows').addEventListener('click', e => {
   if (del && confirm('Delete this product? This cannot be undone.')) {
     const existing = items.find(p => p.id === del.dataset.del);
     if (window.MaisonApi && apiProductsReady && existing?.apiId) {
-      MaisonApi.deleteProduct(existing.apiId).then(loadAdminProducts).then(() => toast('Product deleted.')).catch(error => toast(error.message || 'Could not delete product.'));
+      const fd = new FormData(); fd.set('_method', 'DELETE');
+      MaisonApi.updateProduct(existing.apiId, fd).then(loadAdminProducts).then(() => toast('Product deleted.')).catch(error => toast(error.message || 'Could not delete product.'));
     } else {
       items = items.filter(p => p.id !== del.dataset.del); saveItems(); refresh(); toast('Product deleted.');
     }
   }
 });
-$('#q').addEventListener('input', renderProducts);
+$('#q').addEventListener('input', () => { productPage = 1; renderProducts(); });
+$('#productCategoryFilter').addEventListener('change', () => { productPage = 1; renderProducts(); });
+$('#productStatusFilter').addEventListener('change', () => { productPage = 1; renderProducts(); });
+$('#productSort').addEventListener('change', renderProducts);
+$('#prevProducts').addEventListener('click', () => { productPage--; renderProducts(); });
+$('#nextProducts').addEventListener('click', () => { productPage++; renderProducts(); });
 $('#exportBtn').addEventListener('click', () => download('products.json', JSON.stringify(items, null, 2), 'application/json'));
 function download(name, text, type) { const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([text], { type })), download: name }); a.click(); URL.revokeObjectURL(a.href); }
 
@@ -307,4 +402,8 @@ $('#csvBtn').addEventListener('click', () => {
   download('orders.csv', ['Order,Customer,Date,Total,Status', ...acctList.map(o => [o.id, o.customer, o.date, o.total, o.status].map(q).join(','))].join('\n'), 'text/csv');
 });
 
-renderSettings(); renderSite(); refresh(); applyLogo(); route(); loadAdminProducts();
+renderSettings(); renderSite(); refresh(); applyLogo(); route();
+ensureAdminSession().then(loadAdminProducts).catch(() => {
+  sessionStorage.removeItem(SESSION_KEY);
+  location.replace('../login.html');
+});
