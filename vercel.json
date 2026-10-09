@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://alimanschoolkeffi.com/DeeCommerce/backend/public/:path*"
+    }
+  ]
+}
