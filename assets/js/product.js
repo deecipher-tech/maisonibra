@@ -46,14 +46,14 @@
     const out = p.status === 'out_of_stock' || p.stock <= 0;
 
     root.innerHTML = `
-      <nav class="pcrumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span aria-hidden="true">/</span><a href="shop.html">Shop</a><span aria-hidden="true">/</span><a href="shop.html?category=${esc(p.type)}">${esc(p.category)}</a><span aria-hidden="true">/</span><span aria-current="page">${esc(p.name)}</span></nav>
+      <nav class="pcrumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span aria-hidden="true">/</span><a href="shop.html">Shop</a><span aria-hidden="true">/</span><a href="shop.html?category=${esc(p.type)}">${esc(p.category)}</a>${p.subcategory ? `<span aria-hidden="true">/</span><a href="shop.html?category=${esc(p.type)}&sub=${esc(p.subtype)}">${esc(p.subcategory)}</a>` : ''}<span aria-hidden="true">/</span><span aria-current="page">${esc(p.name)}</span></nav>
       <div class="pdp">
         <div class="gallery">
           <div class="ph ph-card" id="mainImg">${slot(0)}</div>
           <div class="thumbs">${Array.from({ length: total }, (_, i) => `<button class="thumb" type="button" data-i="${i}" aria-label="Show image ${i + 1}" aria-current="${i === 0}"><span class="ph">${slides[i] ? `<img src="${esc(slides[i])}" alt="" loading="lazy">` : `<span>${i + 1}</span>`}</span></button>`).join('')}</div>
         </div>
         <div class="pinfo">
-          <p class="label">${esc(p.category)}</p>
+          <p class="label">${esc(p.subcategory ? `${p.category} · ${p.subcategory}` : p.category)}</p>
           <h1>${esc(p.name)}</h1>
           <p class="pprice">${price}</p>
           <p class="pdesc">${esc(p.fullDesc || p.desc)}</p>
@@ -86,7 +86,8 @@
       showToast(on ? 'Saved to your wishlist.' : 'Removed from your wishlist.');
     });
 
-    const rel = PRODUCTS.filter(x => x.id !== p.id).sort((a, b) => (b.type === p.type) - (a.type === p.type)).slice(0, 4);
+    const score = x => (x.subtype && x.subtype === p.subtype ? 2 : 0) + (x.type === p.type ? 1 : 0);
+    const rel = PRODUCTS.filter(x => x.id !== p.id).sort((a, b) => score(b) - score(a)).slice(0, 4);
     $('#relatedGrid').innerHTML = rel.map(x => card(view(x))).join('');
     $('#related').hidden = rel.length === 0;
     dropBroken($('#relatedGrid'));
