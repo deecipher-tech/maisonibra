@@ -63,12 +63,13 @@
     <section class="section band light" id="fragrances" aria-labelledby="h-frag">
       <h2 class="sr" id="h-frag">All perfumes</h2>
       <div class="toolbar">
+        <div class="filter-stack"><div class="subfilters" id="subFilters" role="group" aria-label="Filter by type" hidden></div></div>
         <p class="count" id="count" role="status" aria-live="polite"></p>
         <label class="sort">Sort by
           <select id="sort"><option value="featured">Featured</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option></select>
         </label>
       </div>
-      <div class="grid g4" id="perfumeGrid"></div>
+      <div class="grid g4" id="categoryGrid" data-type="perfume"></div>
       <p class="empty" id="empty" hidden>New fragrances are coming soon.</p>
     </section>
 
@@ -105,7 +106,7 @@
 
   <footer class="footer">
     <div class="foot-grid">
-      <div><h3>Shop</h3><a href="perfumes.html">Perfume</a><a href="shop.html?category=skincare">Skincare</a><a href="shop.html?category=makeup">Makeup</a><a href="shop.html">New Arrivals</a><a href="shop.html">Best Sellers</a></div>
+      <div><h3>Shop</h3><a href="category1.html">Perfume</a><a href="category2.html">Skincare</a><a href="category3.html">Makeup</a><a href="shop.html">New Arrivals</a><a href="shop.html">Best Sellers</a></div>
       <div><h3>About</h3><a href="index.html#story">Our Story</a><a href="index.html#journal">Journal</a><a href="#top" data-soon="Contact page coming soon.">Contact</a><a href="#top" data-soon="FAQs coming soon.">FAQs</a></div>
       <div><h3>Customer Care</h3><a href="#top" data-soon="Shipping policy coming soon.">Shipping</a><a href="#top" data-soon="Returns policy coming soon.">Returns</a><a href="#top" data-soon="Privacy policy coming soon.">Privacy Policy</a><a href="#top" data-soon="Terms coming soon.">Terms &amp; Conditions</a></div>
       <div><h3>Follow</h3><a href="#top" data-soon="Add the Instagram URL.">Instagram</a><a href="#top" data-soon="Add the TikTok URL.">TikTok</a><a href="#top" data-soon="Add the Facebook URL.">Facebook</a></div>
@@ -117,6 +118,6 @@
   <script src="./assets/js/api.js"></script>
   <script src="./assets/js/script.js"></script>
   <script src="./assets/js/products.js"></script>
-  <script src="./assets/js/perfumes.js"></script>
+  <script src="./assets/js/category.js"></script>
 </body>
 </html>

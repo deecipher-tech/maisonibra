@@ -60,7 +60,7 @@
 
     <section class="section band light" aria-label="Products">
       <div class="toolbar">
-        <div class="filters" role="group" aria-label="Filter by category"><button class="chip" type="button" data-filter="all" aria-pressed="false">All</button><button class="chip" type="button" data-filter="perfume" aria-pressed="false">Perfume</button><button class="chip" type="button" data-filter="skincare" aria-pressed="false">Skincare</button><button class="chip" type="button" data-filter="makeup" aria-pressed="false">Makeup</button></div>
+        <div class="filter-stack"><div class="filters" role="group" aria-label="Filter by category"><button class="chip" type="button" data-filter="all" aria-pressed="false">All</button><button class="chip" type="button" data-filter="perfume" aria-pressed="false">Perfume</button><button class="chip" type="button" data-filter="skincare" aria-pressed="false">Skincare</button><button class="chip" type="button" data-filter="makeup" aria-pressed="false">Makeup</button></div><div class="subfilters" id="subFilters" role="group" aria-label="Filter by type" hidden></div></div>
         <p class="count" id="count" role="status" aria-live="polite"></p>
         <label class="sort">Sort by
           <select id="sort"><option value="featured">Featured</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option></select>
