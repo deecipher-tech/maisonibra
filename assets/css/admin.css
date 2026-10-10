@@ -804,7 +804,7 @@ details.grp .pform {
     color: var(--soft);
 }
 
-.bar {
+.bar-col .bar {
     display: block;
     width: 100%;
     background: linear-gradient(180deg, var(--gold-hi), var(--gold));
@@ -895,3 +895,17 @@ details.grp .pform {
     }
 }
 
+/* ---------- Product form, toolbar and table actions ---------- */
+.field .switch { display: flex; margin: 0; font-size: 13px; font-weight: 500; }
+.field .switch input { position: absolute; opacity: 0; width: 44px; height: 24px; min-height: 0; padding: 0; margin: 0; border: 0; }
+.knob { display: block; background: #bdb5a6; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1); }
+.field input[type=file] { min-height: 0; padding: 8px; background: var(--page); }
+dialog { max-height: calc(100vh - 32px); }
+.dlg-actions { position: sticky; bottom: -24px; margin: 0 -24px -24px; padding: 14px 24px; background: #fff; border-top: 1px solid var(--hair); }
+
+.row-btns { flex-wrap: nowrap; }
+td:last-child { width: 1%; white-space: nowrap; }
+.act { width: 34px; height: 34px; display: inline-grid; place-items: center; padding: 0; border: 1px solid rgba(0, 0, 0, .18); border-radius: 8px; background: #fff; color: var(--text); cursor: pointer; transition: background .2s, color .2s, border-color .2s; }
+.act svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.act:hover { background: var(--text); color: #fff; border-color: var(--text); }
+.act.danger:hover { background: var(--danger); border-color: var(--danger); }
