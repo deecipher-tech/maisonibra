@@ -1,22 +1,10 @@
-/* Category pages (perfume, skincare, makeup). Uses helpers from script.js and data from products.js.
-   The top-level category comes from data-type on #categoryGrid; subcategory chips appear above the grid (?sub=slug). */
+/* Category pages (skincare, makeup...). Uses helpers from script.js and data from products.js.
+   The product type comes from data-type on #categoryGrid. */
 if (typeof PRODUCTS === 'undefined') throw new Error('category.js needs products.js loaded first.');
-const cGrid = $('#categoryGrid'), cCount = $('#count'), cEmpty = $('#empty'), cSort = $('#sort'), cSubs = $('#subFilters');
-const cType = cGrid.dataset.type;
-let cSub = new URLSearchParams(location.search).get('sub') || '';
-let cLoaded = false;
+const cGrid = $('#categoryGrid'), cCount = $('#count'), cEmpty = $('#empty'), cSort = $('#sort');
 
 function renderCategory() {
-  const base = PRODUCTS.filter(p => p.type === cType);
-  const subs = subcategoriesOf(base);
-  if (cLoaded && cSub && !subs.some(s => s.slug === cSub)) cSub = '';
-  renderSubFilters(cSubs, subs, cSub, `All ${LABELS[cType] || 'products'}`, base.length, picked => {
-    cSub = picked;
-    history.replaceState(null, '', cSub ? `?sub=${encodeURIComponent(cSub)}` : location.pathname);
-    renderCategory();
-  });
-
-  let list = base.filter(p => !cSub || !cLoaded || p.subtype === cSub);
+  let list = PRODUCTS.filter(p => p.type === cGrid.dataset.type);
   const dir = { low: 1, high: -1 }[cSort.value];
   if (dir) list = [...list].sort((a, b) => (a.price == null) - (b.price == null) || dir * ((a.price ?? 0) - (b.price ?? 0)));
   cGrid.innerHTML = list.map(p => card(view(p))).join('');
@@ -26,5 +14,5 @@ function renderCategory() {
   observeReveals();
 }
 cSort.addEventListener('change', renderCategory);
-document.addEventListener('maison:products', () => { cLoaded = true; renderCategory(); });
+document.addEventListener('maison:products', renderCategory);
 renderCategory();

@@ -184,8 +184,6 @@ const fromApiProduct = p => ({
   slug: p.slug,
   name: p.name,
   type: p.category?.slug || 'perfume',
-  parentSlug: p.category?.parent?.slug || '',
-  categoryLabel: p.category?.parent ? `${p.category.parent.name} › ${p.category.name}` : (p.category?.name || ''),
   price: p.price,
   compareAtPrice: p.compare_at_price,
   desc: p.short_description || p.description || '',
@@ -223,12 +221,7 @@ async function loadAdminProducts() {
   }
 }
 function renderCategoryOptions() {
-  const byParent = {};
-  categories.filter(c => c.parent_id).forEach(c => (byParent[c.parent_id] ||= []).push(c));
-  const opts = categories.filter(c => !c.parent_id).map(c => [
-    `<option value="${esc(c.slug)}">${esc(c.name)}</option>`,
-    ...(byParent[c.id] || []).map(s => `<option value="${esc(s.slug)}">${esc(c.name)} › ${esc(s.name)}</option>`)
-  ].join('')).join('');
+  const opts = categories.map(c => `<option value="${esc(c.slug)}">${esc(c.name)}</option>`).join('');
   $('#fType').innerHTML = opts;
   $('#productCategoryFilter').innerHTML = '<option value="">All categories</option>' + opts;
 }
@@ -238,7 +231,7 @@ function filteredProducts() {
   const status = $('#productStatusFilter').value;
   let list = items.filter(p =>
     (!q || (p.name + ' ' + p.desc + ' ' + p.type).toLowerCase().includes(q)) &&
-    (!cat || p.type === cat || p.parentSlug === cat) &&
+    (!cat || p.type === cat) &&
     (!status || p.status === status)
   );
   const sort = $('#productSort').value;
@@ -256,7 +249,7 @@ function renderProducts() {
   const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
   productPage = Math.min(productPage, pages);
   const pageItems = list.slice((productPage - 1) * PAGE_SIZE, productPage * PAGE_SIZE);
-  $('#productRows').innerHTML = pageItems.map(p => `<tr><td><div class="product-cell"><img src="${esc(p.image)}" alt="" onerror="this.hidden=true"><div><div class="pname">${esc(p.name)}</div><div class="pdesc">${esc(p.desc)}</div></div></div></td><td>${esc(p.categoryLabel || CATS[p.type] || p.type)}</td><td>${fmt(p.price)}${p.compareAtPrice ? `<div class="pdesc">Sale ${fmt(p.compareAtPrice)}</div>` : ''}</td><td>${esc(p.stock)}</td><td><span class="badge ${p.status}">${esc(statusLabel(p.status))}</span></td><td>${p.featured ? 'Yes' : 'No'}</td><td>${esc((p.createdAt || '').slice(0, 10))}</td><td><div class="row-btns"><a class="act" href="../product.html?id=${encodeURIComponent(p.slug || p.id)}" target="_blank" rel="noopener" title="View" aria-label="View ${esc(p.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></a><button class="act" type="button" data-edit="${esc(p.id)}" title="Edit" aria-label="Edit ${esc(p.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg></button><button class="act danger" type="button" data-del="${esc(p.id)}" title="Delete" aria-label="Delete ${esc(p.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button></div></td></tr>`).join('');
+  $('#productRows').innerHTML = pageItems.map(p => `<tr><td><div class="product-cell"><img src="${esc(p.image)}" alt="" onerror="this.hidden=true"><div><div class="pname">${esc(p.name)}</div><div class="pdesc">${esc(p.desc)}</div></div></div></td><td>${esc(CATS[p.type] || p.type)}</td><td>${fmt(p.price)}${p.compareAtPrice ? `<div class="pdesc">Sale ${fmt(p.compareAtPrice)}</div>` : ''}</td><td>${esc(p.stock)}</td><td><span class="badge ${p.status}">${esc(statusLabel(p.status))}</span></td><td>${p.featured ? 'Yes' : 'No'}</td><td>${esc((p.createdAt || '').slice(0, 10))}</td><td><div class="row-btns"><a class="act" href="../product.html?id=${encodeURIComponent(p.slug || p.id)}" target="_blank" rel="noopener" title="View" aria-label="View ${esc(p.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></a><button class="act" type="button" data-edit="${esc(p.id)}" title="Edit" aria-label="Edit ${esc(p.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg></button><button class="act danger" type="button" data-del="${esc(p.id)}" title="Delete" aria-label="Delete ${esc(p.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button></div></td></tr>`).join('');
   $('#productsEmpty').hidden = list.length > 0;
   $('#productPager').hidden = list.length <= PAGE_SIZE;
   $('#productPageText').textContent = `Page ${productPage} of ${pages}`;
