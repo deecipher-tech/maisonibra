@@ -909,3 +909,21 @@ td:last-child { width: 1%; white-space: nowrap; }
 .act svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .act:hover { background: var(--text); color: #fff; border-color: var(--text); }
 .act.danger:hover { background: var(--danger); border-color: var(--danger); }
+/* ---------- Categories & settings status ---------- */
+dialog.dlg-sm { width: min(520px, calc(100vw - 32px)); }
+.cat-sub td:first-child .pname { padding-left: 22px; }
+.cat-sub td:first-child .pname::before { content: "\2514\00a0"; color: var(--soft); }
+.cat-sub { background: #fbfaf7; }
+.act:disabled { opacity: .35; cursor: not-allowed; }
+.act:disabled:hover { background: #fff; color: var(--text); border-color: rgba(0, 0, 0, .18); }
+.act.danger:disabled:hover { background: #fff; color: var(--text); border-color: rgba(0, 0, 0, .18); }
+.btn.danger { background: var(--danger); border-color: var(--danger); }
+.btn.danger:hover { background: transparent; color: var(--danger); }
+.btn:disabled { opacity: .55; cursor: progress; }
+.cat-slug { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--soft); }
+.settings-state { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; padding: 10px 14px; border: 1px solid var(--hair); border-radius: 8px; background: #fff; font-size: 13px; }
+.settings-state.error { border-color: var(--danger); color: var(--danger); }
+.settings-state[hidden] { display: none; }
+.field [aria-invalid=true] { border-color: var(--danger); }
+.act-spacer { width: 34px; flex: none; }
+.btn[hidden] { display: none; }

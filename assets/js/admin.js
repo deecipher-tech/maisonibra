@@ -1,5 +1,5 @@
-/* Admin dashboard (front-end only). Data lives in this browser's localStorage under ibra_* keys.
-   TODO: replace store.get/store.set with calls to your backend. A real admin also needs server-side login. */
+/* Admin dashboard. Products, categories, settings and the password are saved through the API (MaisonApi).
+   The storefront editor, orders and customers still use this browser's localStorage (ibra_* keys). */
 if (!sessionStorage.getItem(SESSION_KEY)) location.replace('../login.html');
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -15,7 +15,8 @@ const store = {
 const getp = (o, p) => p.split('.').reduce((a, k) => a?.[k], o);
 const setp = (o, p, v) => { const ks = p.split('.'); let t = o; ks.slice(0, -1).forEach(k => t = t[k] ??= {}); t[ks[ks.length - 1]] = v; };
 
-let settings = store.get('ibra_settings', {}), site = store.get('ibra_site', {});
+let settings = {}, site = store.get('ibra_site', {}); // settings come from the API (loadSettings)
+const adminAsset = v => /^\.\//.test(v || '') ? '.' + v : (v || ''); // './assets/x.png' -> '../assets/x.png' (admin lives in /admin)
 const cur = () => settings.general?.currency || '₦';
 const fmt = n => n == null || n === '' ? '—' : cur() + Number(n).toLocaleString('en-NG');
 const CATS = { perfume: 'Perfume', skincare: 'Skincare', makeup: 'Makeup' };
@@ -23,7 +24,7 @@ const ORDERS = store.get('ibra_orders', []);       // { id, customer, date:'YYYY
 const CUSTOMERS = store.get('ibra_customers', []); // { name, email, orders }
 
 /* ---------- Navigation ---------- */
-const TITLES = { dashboard: 'Dashboard', products: 'Products', orders: 'Orders', customers: 'Customers', account: 'Account', storefront: 'Storefront', settings: 'Settings' };
+const TITLES = { dashboard: 'Dashboard', products: 'Products', categories: 'Categories & Sub-categories', orders: 'Orders', customers: 'Customers', account: 'Account', storefront: 'Storefront', settings: 'Settings' };
 const side = $('#side'), scrim = $('#scrim'), burger = $('#burger');
 function setSide(open) { side.classList.toggle('open', open); scrim.hidden = !open; burger.setAttribute('aria-expanded', open); }
 function route() {
@@ -33,6 +34,7 @@ function route() {
   $('#viewTitle').textContent = TITLES[v];
   document.title = `${TITLES[v]} | MAISON IBRA Admin`;
   if (v === 'account') renderAccount();
+  if (v === 'categories') renderCategories();
   setSide(false);
 }
 burger.addEventListener('click', () => setSide(!side.classList.contains('open')));
@@ -50,7 +52,7 @@ function applyLogo() {
       name.hidden = false;
     }
   };
-  const src = settings.general?.logo || '../assets/images/logo.png';
+  const src = adminAsset(settings.general?.logo) || '../assets/images/logo.png';
   if (img.getAttribute('src') !== src) img.src = src; else if (img.complete && !img.naturalWidth) img.onerror();
 }
 $('#logout').addEventListener('click', async e => {
@@ -73,53 +75,125 @@ const T = (k, label, o = {}) => ({ k, label, ...o });
 function fieldHTML(f, obj) {
   const v = getp(obj, f.k) ?? f.d ?? '', id = 'f_' + f.k.replace(/\./g, '_'), p = `data-path="${f.k}"`;
   if (f.type === 'toggle') return `<div class="field"><label class="switch"><input type="checkbox" id="${id}" ${p} ${v === 'on' ? 'checked' : ''}><span class="knob"></span><span>${esc(f.label)}</span></label>${f.hint ? `<p class="hint">${esc(f.hint)}</p>` : ''}</div>`;
-  if (f.type === 'image') return `<div class="field"><label for="${id}">${esc(f.label)}</label><div class="img-row"><img src="${esc(v)}" alt="" ${v ? '' : 'hidden'}><input type="text" id="${id}" ${p} value="${esc(v)}" placeholder="Path, URL or upload" /><button type="button" class="btn btn-ghost" data-upload>Upload</button><input type="file" accept="image/*" hidden></div></div>`;
+  if (f.type === 'image') return `<div class="field"><label for="${id}">${esc(f.label)}</label><div class="img-row"><img src="${esc(adminAsset(v))}" alt="" ${v ? '' : 'hidden'}><input type="text" id="${id}" ${p} value="${esc(v)}" placeholder="Path, URL or upload" /><button type="button" class="btn btn-ghost" data-upload>Upload</button><input type="file" accept="image/*" hidden></div></div>`;
   const input = f.type === 'textarea' ? `<textarea id="${id}" ${p} rows="3">${esc(v)}</textarea>` : `<input id="${id}" ${p} type="${f.type === 'number' ? 'number' : 'text'}" value="${esc(v)}" ${f.type === 'number' ? 'min="1" max="24"' : ''}>`;
   return `<div class="field"><label for="${id}">${esc(f.label)}</label>${input}</div>`;
 }
-function bindImages(root) {
+function bindImages(root, upload) {
+  // upload(file) -> Promise<{ url }>: when given, the file is uploaded to the server and its URL is used.
+  // Without it (storefront editor) the image is embedded as a data URL, as before.
   root.addEventListener('click', e => { const b = e.target.closest('[data-upload]'); if (b) b.parentElement.querySelector('input[type=file]').click(); });
-  root.addEventListener('change', e => {
+  root.addEventListener('change', async e => {
     if (e.target.type !== 'file' || !e.target.files[0]) return;
-    const file = e.target.files[0], row = e.target.parentElement;
-    if (file.size > 600 * 1024) { e.target.value = ''; return toast('Image is over 600KB. Use a smaller image or a file path.'); }
+    const input = e.target, file = input.files[0], row = input.parentElement;
+    const text = row.querySelector('input[type=text]'), img = row.querySelector('img');
+    if (upload) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { input.value = ''; return toast('Use a JPEG, PNG or WebP image.'); }
+      if (file.size > 2 * 1024 * 1024) { input.value = ''; return toast('Image must be 2MB or smaller.'); }
+      const btn = row.querySelector('[data-upload]'); btn.disabled = true; btn.textContent = 'Uploading...';
+      try { const res = await upload(file); text.value = res.url; img.src = res.url; img.hidden = false; toast('Image uploaded. Click Save changes to apply it.'); }
+      catch (error) { toast(error.message || 'Upload failed.'); }
+      finally { btn.disabled = false; btn.textContent = 'Upload'; input.value = ''; }
+      return;
+    }
+    if (file.size > 600 * 1024) { input.value = ''; return toast('Image is over 600KB. Use a smaller image or a file path.'); }
     const r = new FileReader();
-    r.onload = () => { const t = row.querySelector('input[type=text]'); t.value = r.result; row.querySelector('img').src = r.result; row.querySelector('img').hidden = false; };
+    r.onload = () => { text.value = r.result; img.src = r.result; img.hidden = false; };
     r.readAsDataURL(file);
   });
-  root.addEventListener('input', e => { if (e.target.type === 'text' && e.target.parentElement.classList.contains('img-row')) { const i = e.target.parentElement.querySelector('img'); i.src = e.target.value; i.hidden = !e.target.value; } });
+  root.addEventListener('input', e => { if (e.target.type === 'text' && e.target.parentElement.classList.contains('img-row')) { const i = e.target.parentElement.querySelector('img'); i.src = adminAsset(e.target.value); i.hidden = !e.target.value; } });
 }
 function collect(root, obj) {
   $$('[data-path]', root).forEach(el => setp(obj, el.dataset.path, el.type === 'checkbox' ? (el.checked ? 'on' : 'off') : el.type === 'number' ? Math.max(1, Math.min(24, +el.value || 1)) : el.value.trim()));
   return obj;
 }
 
-/* ---------- Settings ---------- */
+/* ---------- Settings (loaded from and saved to the API; one section is saved at a time) ---------- */
 const SETTINGS = {
   general: [T('general.appName', 'App name', { d: 'MAISON IBRA' }), T('general.currency', 'Currency symbol', { d: '₦' }), T('general.status', 'Platform is live', { type: 'toggle', d: 'on', hint: 'Turn off to show visitors a "back soon" page. You can still use this admin.' }), T('general.logo', 'Logo', { type: 'image' }), T('general.favicon', 'Favicon', { type: 'image' })],
   contact: [T('contact.email', 'Email address'), T('contact.supportEmail', 'Support email'), T('contact.phone', 'Phone number'), T('contact.whatsapp', 'WhatsApp number'), T('contact.address', 'Address', { type: 'textarea' }), T('contact.hours', 'Opening hours')],
   social: [T('social.instagram', 'Instagram URL'), T('social.tiktok', 'TikTok URL'), T('social.facebook', 'Facebook URL'), T('social.x', 'X (Twitter) URL'), T('social.whatsapp', 'WhatsApp link')]
 };
 const STABS = [['general', 'General'], ['payments', 'Payments'], ['contact', 'Contact'], ['social', 'Social'], ['security', 'Security']];
-let banks = settings.banks || [];
+let banks = [], settingsLoaded = false, activeTab = 'general';
 
-function bankRows() {
-  $('#bankList').innerHTML = banks.length ? banks.map((b, i) => `<div class="bank-row"><div class="field"><label for="bk${i}">Bank name</label><input id="bk${i}" data-bank="${i}.bank" value="${esc(b.bank)}"></div><div class="field"><label for="bn${i}">Account name</label><input id="bn${i}" data-bank="${i}.name" value="${esc(b.name)}"></div><div class="field"><label for="bu${i}">Account number</label><input id="bu${i}" data-bank="${i}.number" inputmode="numeric" value="${esc(b.number)}"></div><button type="button" class="link-btn del" data-rmbank="${i}">Remove bank</button></div>`).join('') : '<p class="hint">No bank accounts yet. Add one to receive payments.</p>';
+const RX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/, RX_URL = /^https?:\/\/\S+$/i, RX_PHONE = /^[0-9+()\-\s]{6,30}$/, RX_MEDIA = /^(https?:\/\/|\.\/)\S*$/i;
+// Mirrors the server rules for instant feedback; the server remains the authority. Returns { 'section.field': message }.
+function checkSection(section, d) {
+  const e = {};
+  if (section === 'general') {
+    if (!d.appName) e['general.appName'] = 'App name is required.';
+    if (!d.currency || d.currency.length > 8) e['general.currency'] = 'Currency symbol is required (8 characters at most).';
+    ['logo', 'favicon'].forEach(k => { if (d[k] && !RX_MEDIA.test(d[k])) e[`general.${k}`] = 'Upload an image, or use a relative path or an http(s) URL.'; });
+  } else if (section === 'contact') {
+    ['email', 'supportEmail'].forEach(k => { if (d[k] && !RX_EMAIL.test(d[k])) e[`contact.${k}`] = 'Enter a valid email address.'; });
+    ['phone', 'whatsapp'].forEach(k => { if (d[k] && !RX_PHONE.test(d[k])) e[`contact.${k}`] = 'Use digits, spaces, +, - and brackets only (6-30 characters).'; });
+  } else if (section === 'social') {
+    Object.keys(d).forEach(k => { if (d[k] && !RX_URL.test(d[k])) e[`social.${k}`] = 'Enter a full link starting with http:// or https://.'; });
+  } else if (section === 'banks') {
+    d.forEach((b, i) => {
+      if (!b.bank) e[`banks.${i}.bank`] = 'Enter the bank name.';
+      if (!b.name) e[`banks.${i}.name`] = 'Enter the account name.';
+      if (!/^\d{6,20}$/.test(b.number)) e[`banks.${i}.number`] = 'Account number must be 6-20 digits.';
+    });
+  }
+  return e;
 }
-function readBanks() { $$('[data-bank]').forEach(el => { const [i, k] = el.dataset.bank.split('.'); banks[i][k] = el.value.trim(); }); }
+const errTarget = k => k.startsWith('banks.') ? `[data-bank="${k.slice(6)}"]` : k === 'current_password' ? '#curPw' : k === 'new_password' ? '#newPw' : k === 'confirm' ? '#newPw2' : `[data-path="${k}"]`;
+function showFormErrors(form, errors, fallback = '') {
+  $$('[aria-invalid]', form).forEach(el => el.removeAttribute('aria-invalid'));
+  const keys = Object.keys(errors || {}), box = $('.err', form);
+  keys.forEach(k => $(errTarget(k), form)?.setAttribute('aria-invalid', 'true'));
+  if (box) box.textContent = keys.length ? errors[keys[0]] : fallback;
+  if (keys.length) $(errTarget(keys[0]), form)?.focus();
+}
+const setBusy = (btn, on, text) => { if (!btn) return; if (on) { btn.dataset.label = btn.textContent; btn.textContent = text; } else if (btn.dataset.label) btn.textContent = btn.dataset.label; btn.disabled = on; };
+function backToLogin() { sessionStorage.removeItem(SESSION_KEY); location.replace('../login.html'); }
+
+function setSettingsState(kind, text, retry = false) {
+  const box = $('#settingsState'), panels = $('#settingsPanels');
+  box.hidden = !text; box.classList.toggle('error', kind === 'error');
+  $('#settingsStateText').textContent = text || '';
+  $('#settingsRetry').hidden = !retry;
+  panels.toggleAttribute('inert', !settingsLoaded); // nothing can be saved until the real values have loaded
+  panels.style.opacity = settingsLoaded ? '' : '.55';
+}
+async function loadSettings() {
+  if (!window.MaisonApi) return;
+  setSettingsState('info', 'Loading settings...');
+  try {
+    const data = await MaisonApi.getSettings();
+    settings = data.settings || {};
+    banks = (settings.banks || []).map(b => ({ ...b }));
+    settingsLoaded = true;
+    renderSettings(); applyLogo(); refresh();
+    setSettingsState('info', '');
+  } catch (error) {
+    if (error.status === 401) return backToLogin();
+    settingsLoaded = false;
+    setSettingsState('error', (error.message || 'Could not load settings.') + ' Saving is disabled until they load.', true);
+  }
+}
+$('#settingsRetry').addEventListener('click', loadSettings);
+
+const groupForm = k => `<form class="pform" data-group="${k}" novalidate>${SETTINGS[k].map(f => fieldHTML(f, settings)).join('')}<p class="err" role="alert"></p><div><button class="btn" type="submit">Save changes</button></div></form>`;
+function bankRows() {
+  $('#bankList').innerHTML = banks.length ? banks.map((b, i) => `<div class="bank-row"><div class="field"><label for="bk${i}">Bank name</label><input id="bk${i}" data-bank="${i}.bank" maxlength="120" value="${esc(b.bank)}"></div><div class="field"><label for="bn${i}">Account name</label><input id="bn${i}" data-bank="${i}.name" maxlength="160" value="${esc(b.name)}"></div><div class="field"><label for="bu${i}">Account number</label><input id="bu${i}" data-bank="${i}.number" inputmode="numeric" maxlength="20" value="${esc(b.number)}"></div><button type="button" class="link-btn del" data-rmbank="${i}">Remove bank</button></div>`).join('') : '<p class="hint">No bank accounts yet. Add one to receive payments.</p>';
+}
+function readBanks() { $$('[data-bank]').forEach(el => { const [i, k] = el.dataset.bank.split('.'); if (banks[i]) banks[i][k] = el.value.trim(); }); }
 
 function renderSettings() {
-  $('#settingsTabs').innerHTML = STABS.map(([k, l], i) => `<button type="button" role="tab" id="tab-${k}" aria-controls="panel-${k}" aria-selected="${i === 0}" tabindex="${i ? -1 : 0}" data-tab="${k}">${l}</button>`).join('');
-  const form = k => `<form class="pform" data-group="${k}" novalidate>${SETTINGS[k].map(f => fieldHTML(f, settings)).join('')}<div><button class="btn" type="submit">Save changes</button></div></form>`;
-  const panel = (k, body) => `<div class="card" role="tabpanel" id="panel-${k}" aria-labelledby="tab-${k}" ${k === 'general' ? '' : 'hidden'}>${body}</div>`;
+  $('#settingsTabs').innerHTML = STABS.map(([k, l]) => `<button type="button" role="tab" id="tab-${k}" aria-controls="panel-${k}" aria-selected="${k === activeTab}" tabindex="${k === activeTab ? 0 : -1}" data-tab="${k}">${l}</button>`).join('');
+  const panel = (k, body) => `<div class="card" role="tabpanel" id="panel-${k}" aria-labelledby="tab-${k}" ${k === activeTab ? '' : 'hidden'}>${body}</div>`;
   $('#settingsPanels').innerHTML =
-    panel('general', form('general')) +
-    panel('payments', `<form class="pform" id="bankForm" novalidate><p class="hint">Bank accounts customers can pay into. Add as many as you need.</p><div id="bankList" class="bank-list"></div><p class="err" id="bankErr" role="alert"></p><div class="actions-row"><button type="button" class="btn btn-ghost" id="addBank">Add bank</button><button class="btn" type="submit">Save banks</button></div></form>`) +
-    panel('contact', form('contact')) + panel('social', form('social')) +
+    panel('general', groupForm('general')) +
+    panel('payments', `<form class="pform" id="bankForm" novalidate><p class="hint">Bank accounts customers can pay into. Add as many as you need (up to 10).</p><div id="bankList" class="bank-list"></div><p class="err" id="bankErr" role="alert"></p><div class="actions-row"><button type="button" class="btn btn-ghost" id="addBank">Add bank</button><button class="btn" type="submit">Save banks</button></div></form>`) +
+    panel('contact', groupForm('contact')) + panel('social', groupForm('social')) +
     panel('security', `<form class="pform" id="pwForm" novalidate><div class="field"><label for="curPw">Current password</label><input id="curPw" type="password" autocomplete="current-password"></div><div class="field"><label for="newPw">New password</label><input id="newPw" type="password" autocomplete="new-password"></div><div class="field"><label for="newPw2">Confirm new password</label><input id="newPw2" type="password" autocomplete="new-password"></div><p class="err" id="pwErr" role="alert"></p><div><button class="btn" type="submit">Change password</button></div></form>`);
-  bankRows(); bindImages($('#settingsPanels'));
+  bankRows();
 }
 function showTab(k) {
+  activeTab = k;
   $$('[role=tab]').forEach(t => { const on = t.dataset.tab === k; t.setAttribute('aria-selected', on); t.tabIndex = on ? 0 : -1; });
   $$('[role=tabpanel]').forEach(p => p.hidden = p.id !== 'panel-' + k);
 }
@@ -129,27 +203,62 @@ $('#settingsTabs').addEventListener('keydown', e => {
   if (i < 0 || !['ArrowRight', 'ArrowLeft'].includes(e.key)) return;
   const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]; n.focus(); showTab(n.dataset.tab);
 });
+
+// Sends one section to the API. Returns true when saved (and `settings` now holds what the server stored).
+async function saveSection(form, btn, section, data) {
+  const local = checkSection(section, data);
+  if (Object.keys(local).length) { showFormErrors(form, local); return false; }
+  showFormErrors(form, {});
+  setBusy(btn, true, 'Saving...');
+  try {
+    const res = await MaisonApi.updateSettings({ settings: { [section]: data } });
+    settings = res.settings || settings;
+    return true;
+  } catch (error) {
+    if (error.status === 401) { backToLogin(); return false; }
+    showFormErrors(form, error.details, error.message || 'Could not save settings.');
+    toast('Settings were not saved.');
+    return false;
+  } finally { setBusy(btn, false); }
+}
 $('#settingsPanels').addEventListener('submit', async e => {
   e.preventDefault();
-  const f = e.target;
-  if (f.dataset.group) { collect(f, settings); if (store.set('ibra_settings', settings)) { toast('Settings saved.'); refresh(); applyLogo(); } }
-  else if (f.id === 'bankForm') {
-    readBanks(); const err = $('#bankErr'); err.textContent = '';
-    if (banks.some(b => !b.bank || !b.name || !/^\d{6,20}$/.test(b.number))) return err.textContent = 'Each bank needs a bank name, account name and a numeric account number.';
-    settings.banks = banks; if (store.set('ibra_settings', settings)) toast('Bank details saved.');
+  const f = e.target, btn = $('button[type=submit]', f);
+  if (!settingsLoaded || !window.MaisonApi) return toast('Settings have not loaded yet.');
+  if (f.dataset.group) {
+    const group = f.dataset.group, draft = {}; collect(f, draft);
+    if (await saveSection(f, btn, group, draft[group] || {})) {
+      f.outerHTML = groupForm(group); // re-render with what the server actually stored
+      toast('Settings saved.');
+      if (group === 'general') { applyLogo(); refresh(); }
+    }
+  } else if (f.id === 'bankForm') {
+    readBanks();
+    if (await saveSection(f, btn, 'banks', banks)) { banks = (settings.banks || []).map(b => ({ ...b })); bankRows(); toast('Bank details saved.'); }
   } else if (f.id === 'pwForm') {
-    const err = $('#pwErr'), n = $('#newPw').value; err.textContent = '';
-    if (getHash() && await hashPw($('#curPw').value) !== getHash()) return err.textContent = 'Current password is incorrect.';
-    if (n.length < 8) return err.textContent = 'Use at least 8 characters.';
-    if (n !== $('#newPw2').value) return err.textContent = 'The new passwords do not match.';
-    try { localStorage.setItem(AUTH_KEY, await hashPw(n)); f.reset(); toast('Password changed.'); } catch (x) { err.textContent = 'Could not save in this browser.'; }
+    const cur = $('#curPw').value, n = $('#newPw').value, local = {};
+    if (!cur) local.current_password = 'Enter your current password.';
+    else if (n.length < 8) local.new_password = 'Use at least 8 characters.';
+    else if (n !== $('#newPw2').value) local.confirm = 'The new passwords do not match.';
+    else if (n === cur) local.new_password = 'The new password must be different from the current one.';
+    if (Object.keys(local).length) return showFormErrors(f, local);
+    showFormErrors(f, {}); setBusy(btn, true, 'Saving...');
+    try { await MaisonApi.changePassword(cur, n); f.reset(); toast('Password changed.'); }
+    catch (error) {
+      if (error.status === 401) return backToLogin();
+      showFormErrors(f, error.details, error.message || 'Could not change the password.');
+    } finally { setBusy(btn, false); }
   }
 });
 $('#settingsPanels').addEventListener('click', e => {
-  if (e.target.id === 'addBank') { readBanks(); banks.push({ bank: '', name: '', number: '' }); bankRows(); }
+  if (e.target.id === 'addBank') {
+    if (banks.length >= 10) return toast('You can save up to 10 bank accounts.');
+    readBanks(); banks.push({ bank: '', name: '', number: '' }); bankRows();
+  }
   const rm = e.target.closest('[data-rmbank]');
   if (rm) { readBanks(); banks.splice(+rm.dataset.rmbank, 1); bankRows(); }
 });
+bindImages($('#settingsPanels'), file => MaisonApi.uploadSettingsImage(file));
 
 /* ---------- Storefront editor ---------- */
 const GROUPS = [
@@ -207,6 +316,7 @@ async function loadAdminProducts() {
     const catData = await MaisonApi.adminCategories();
     categories = catData.categories || [];
     renderCategoryOptions();
+    renderCategories();
     const data = await MaisonApi.adminProducts();
     if (Array.isArray(data.products)) {
       items = data.products.map(fromApiProduct);
@@ -225,12 +335,15 @@ async function loadAdminProducts() {
 function renderCategoryOptions() {
   const byParent = {};
   categories.filter(c => c.parent_id).forEach(c => (byParent[c.parent_id] ||= []).push(c));
-  const opts = categories.filter(c => !c.parent_id).map(c => [
-    `<option value="${esc(c.slug)}">${esc(c.name)}</option>`,
-    ...(byParent[c.id] || []).map(s => `<option value="${esc(s.slug)}">${esc(c.name)} › ${esc(s.name)}</option>`)
+  // Products can only be assigned to active categories (the API enforces it); the filter lists everything.
+  const build = activeOnly => categories.filter(c => !c.parent_id && (!activeOnly || c.status === 'active')).map(c => [
+    `<option value="${esc(c.slug)}">${esc(c.name)}${c.status === 'hidden' ? ' (hidden)' : ''}</option>`,
+    ...(byParent[c.id] || []).filter(s => !activeOnly || s.status === 'active').map(s => `<option value="${esc(s.slug)}">${esc(c.name)} › ${esc(s.name)}${s.status === 'hidden' ? ' (hidden)' : ''}</option>`)
   ].join('')).join('');
-  $('#fType').innerHTML = opts;
-  $('#productCategoryFilter').innerHTML = '<option value="">All categories</option>' + opts;
+  const keep = $('#productCategoryFilter').value;
+  $('#fType').innerHTML = build(true);
+  $('#productCategoryFilter').innerHTML = '<option value="">All categories</option>' + build(false);
+  $('#productCategoryFilter').value = keep;
 }
 function filteredProducts() {
   const q = $('#q').value.trim().toLowerCase();
@@ -287,6 +400,8 @@ function openDialog(p) {
   form.reset(); $('#productErr').textContent = ''; el('name').removeAttribute('aria-invalid');
   $('#dlgTitle').textContent = p ? 'Edit product' : 'Add product'; el('id').value = p?.id || '';
   if (p) {
+    // A product whose category is now hidden is not in the active-only list: show it so saving never moves it silently.
+    if (![...el('category_slug').options].some(o => o.value === p.type)) el('category_slug').insertAdjacentHTML('afterbegin', `<option value="${esc(p.type)}">${esc(p.categoryLabel || p.type)} (hidden)</option>`);
     el('name').value = p.name; el('slug').value = p.slug || p.id; el('category_slug').value = p.type;
     el('price').value = p.price ?? ''; el('compare_at_price').value = p.compareAtPrice ?? '';
     el('stock_quantity').value = p.stock ?? 0; el('short_description').value = p.desc || '';
@@ -366,6 +481,140 @@ $('#nextProducts').addEventListener('click', () => { productPage++; renderProduc
 $('#exportBtn').addEventListener('click', () => download('products.json', JSON.stringify(items, null, 2), 'application/json'));
 function download(name, text, type) { const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([text], { type })), download: name }); a.click(); URL.revokeObjectURL(a.href); }
 
+/* ---------- Categories & sub-categories ---------- */
+const catDlg = $('#categoryDialog'), catForm = $('#categoryForm'), cel = n => catForm.elements.namedItem(n);
+const delDlg = $('#catDelDialog');
+let catSlugTouched = false, delState = null;
+const ICON = {
+  plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>'
+};
+const catLabel = c => c.parent_id ? `${c.parent_name} › ${c.name}` : c.name;
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+function categoryRowHTML(c) {
+  const sub = !!c.parent_id;
+  const addSub = sub ? '<span class="act-spacer"></span>' : `<button class="act" type="button" data-cat-addsub="${c.id}" title="Add sub-category" aria-label="Add sub-category to ${esc(c.name)}">${ICON.plus}</button>`;
+  const del = c.is_protected
+    ? `<button class="act danger" type="button" disabled title="Core category: it powers the storefront pages. Hide it instead." aria-label="${esc(c.name)} cannot be deleted">${ICON.trash}</button>`
+    : `<button class="act danger" type="button" data-cat-del="${c.id}" title="Delete" aria-label="Delete ${esc(c.name)}">${ICON.trash}</button>`;
+  return `<tr class="${sub ? 'cat-sub' : ''}"><td><div class="pname">${esc(c.name)}</div>${c.description ? `<div class="pdesc">${esc(c.description)}</div>` : ''}</td><td><span class="cat-slug">${esc(c.slug)}</span></td><td>${sub ? esc(c.parent_name) : 'Top-level'}</td><td>${esc(c.product_count)}</td><td>${sub ? '—' : esc(c.child_count)}</td><td><span class="badge ${c.status === 'hidden' ? 'draft' : ''}">${c.status === 'hidden' ? 'Hidden' : 'Active'}</span></td><td>${esc(c.sort_order)}</td><td><div class="row-btns">${addSub}<button class="act" type="button" data-cat-edit="${c.id}" title="Edit" aria-label="Edit ${esc(c.name)}">${ICON.edit}</button>${del}</div></td></tr>`;
+}
+function renderCategories() {
+  const q = $('#catSearch').value.trim().toLowerCase(), st = $('#catStatusFilter').value;
+  const nameHit = c => !q || `${c.name} ${c.slug}`.toLowerCase().includes(q), statHit = c => !st || c.status === st;
+  const rows = [];
+  categories.filter(c => !c.parent_id).forEach(t => {
+    // A parent is shown when it matches, or when one of its sub-categories does (as context).
+    const kids = categories.filter(c => c.parent_id === t.id && statHit(c) && (nameHit(c) || nameHit(t)));
+    if ((nameHit(t) && statHit(t)) || kids.length) rows.push(t, ...kids);
+  });
+  $('#categoryRows').innerHTML = rows.map(categoryRowHTML).join('');
+  $('#categoriesEmpty').hidden = rows.length > 0;
+}
+function markCategoryErrors(errors, fallback = '') {
+  $$('[aria-invalid]', catForm).forEach(x => x.removeAttribute('aria-invalid'));
+  const keys = Object.keys(errors || {});
+  keys.forEach(k => cel(k)?.setAttribute('aria-invalid', 'true'));
+  $('#categoryErr').textContent = keys.length ? errors[keys[0]] : fallback;
+  if (keys.length) cel(keys[0])?.focus();
+}
+function openCategoryDialog(c, parentId = null) {
+  catForm.reset(); markCategoryErrors({});
+  catSlugTouched = !!c;
+  $('#catDlgTitle').textContent = c ? 'Edit category' : parentId ? 'Add sub-category' : 'Add category';
+  cel('id').value = c?.id || '';
+  const tops = categories.filter(x => !x.parent_id && x.id !== c?.id);
+  $('#cParent').innerHTML = '<option value="">None (top-level category)</option>' + tops.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+  if (c) {
+    cel('name').value = c.name; cel('slug').value = c.slug; cel('description').value = c.description || '';
+    cel('sort_order').value = c.sort_order; cel('status').value = c.status; cel('parent_id').value = c.parent_id || '';
+  } else if (parentId) cel('parent_id').value = parentId;
+  const lockParent = !!c && (c.is_protected || c.child_count > 0);
+  cel('parent_id').disabled = lockParent;
+  $('#cParentHint').textContent = lockParent
+    ? (c.is_protected ? 'Core categories always stay top-level.' : 'This category has sub-categories, so it must stay top-level.')
+    : 'Leave as top-level, or pick a parent to create a sub-category.';
+  cel('slug').readOnly = !!c?.is_protected;
+  $('#cSlugHint').textContent = c?.is_protected ? 'The slug of a core category is used by the storefront and cannot be changed.' : 'Used in storefront links. Lowercase letters, numbers and hyphens.';
+  catDlg.showModal(); cel('name').focus();
+}
+cel('name').addEventListener('input', () => { if (!catSlugTouched) cel('slug').value = slugifyText(cel('name').value); });
+cel('slug').addEventListener('input', () => { catSlugTouched = true; });
+$('#addCategoryBtn').addEventListener('click', () => openCategoryDialog());
+$('#catCancel').addEventListener('click', () => catDlg.close());
+catForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('#catSave'), id = cel('id').value;
+  const body = { name: cel('name').value.trim(), slug: cel('slug').value.trim(), parent_id: cel('parent_id').value || null, description: cel('description').value.trim(), sort_order: cel('sort_order').value.trim(), status: cel('status').value };
+  const local = {};
+  if (!body.name) local.name = 'Enter a category name.';
+  if (body.slug && !/^[a-z0-9-]+$/.test(body.slug)) local.slug = 'Slug may only contain lowercase letters, numbers and hyphens.';
+  if (body.sort_order !== '' && !/^\d{1,4}$/.test(body.sort_order)) local.sort_order = 'Display order must be a whole number from 0 to 9999.';
+  if (Object.keys(local).length) return markCategoryErrors(local);
+  markCategoryErrors({});
+  if (!window.MaisonApi) return markCategoryErrors({}, 'The API is not available.');
+  setBusy(btn, true, 'Saving...');
+  try {
+    if (id) await MaisonApi.updateCategory(id, body); else await MaisonApi.createCategory(body);
+    catDlg.close(); toast(id ? 'Category updated.' : 'Category added.');
+    await loadAdminProducts(); // refreshes categories, the product form options and product labels
+  } catch (error) {
+    if (error.status === 401) return backToLogin();
+    markCategoryErrors(error.details, error.message || 'Could not save the category.');
+  } finally { setBusy(btn, false); }
+});
+
+function setupDeleteDialog(c) {
+  const msg = $('#catDelMsg'), move = $('#catDelMoveField'), ok = $('#catDelConfirm'), sel = $('#catDelTarget');
+  $('#catDelErr').textContent = ''; $('#catDelTitle').textContent = `Delete “${c.name}”`;
+  move.hidden = true; ok.hidden = false; ok.textContent = 'Delete';
+  if (c.child_count > 0) {
+    msg.textContent = `“${c.name}” still has ${plural(c.child_count, 'sub-category', 'sub-categories')}. Delete or move them first.`; ok.hidden = true;
+  } else if (c.product_count > 0) {
+    const targets = categories.filter(x => x.id !== c.id && x.status === 'active');
+    if (!targets.length) { msg.textContent = `${plural(c.product_count, 'product uses', 'products use')} “${c.name}”, and there is no other active category to move them to. Create one first.`; ok.hidden = true; return; }
+    msg.textContent = `${plural(c.product_count, 'product uses', 'products use')} “${c.name}”. Choose where they should go; the category is then deleted. This cannot be undone.`;
+    sel.innerHTML = targets.map(t => `<option value="${t.id}">${esc(catLabel(t))}</option>`).join('');
+    if (c.parent_id && targets.some(t => t.id === c.parent_id)) sel.value = c.parent_id;
+    move.hidden = false; ok.textContent = 'Move products & delete';
+  } else msg.textContent = `Delete “${c.name}”? This cannot be undone.`;
+}
+function openDeleteDialog(c) { delState = c; setupDeleteDialog(c); if (!delDlg.open) delDlg.showModal(); }
+$('#catDelCancel').addEventListener('click', () => delDlg.close());
+$('#catDelForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const c = delState, btn = $('#catDelConfirm'), err = $('#catDelErr');
+  if (!c || !window.MaisonApi) return;
+  const moving = !$('#catDelMoveField').hidden, target = moving ? Number($('#catDelTarget').value) || null : null;
+  if (moving && !target) return err.textContent = 'Choose a category to move the products to.';
+  err.textContent = ''; setBusy(btn, true, 'Deleting...');
+  try {
+    await MaisonApi.deleteCategory(c.id, target);
+    delDlg.close(); delState = null;
+    toast(moving ? 'Products moved and category deleted.' : 'Category deleted.');
+    await loadAdminProducts();
+  } catch (error) {
+    if (error.status === 401) return backToLogin();
+    const d = error.details || {};
+    if (error.status === 409 && (d.product_count || d.child_count)) { // our list was stale: show what the server found
+      if (d.product_count) c.product_count = d.product_count;
+      if (d.child_count) c.child_count = d.child_count;
+      setupDeleteDialog(c); err.textContent = error.message;
+    } else err.textContent = d.reassign_to || error.message || 'Could not delete the category.';
+  } finally { setBusy(btn, false); }
+});
+
+$('#categoryRows').addEventListener('click', e => {
+  const byId = id => categories.find(c => c.id === +id);
+  const ed = e.target.closest('[data-cat-edit]'), del = e.target.closest('[data-cat-del]'), add = e.target.closest('[data-cat-addsub]');
+  if (ed) openCategoryDialog(byId(ed.dataset.catEdit));
+  if (add) openCategoryDialog(null, +add.dataset.catAddsub);
+  if (del) openDeleteDialog(byId(del.dataset.catDel));
+});
+$('#catSearch').addEventListener('input', renderCategories);
+$('#catStatusFilter').addEventListener('change', renderCategories);
+
 /* ---------- Orders, customers, dashboard ---------- */
 const orderRow = o => `<tr><td>${esc(o.id)}</td><td>${esc(o.customer)}</td><td>${esc(o.date)}</td><td>${fmt(o.total)}</td><td>${esc(o.status)}</td></tr>`;
 function renderTables() {
@@ -409,8 +658,5 @@ $('#csvBtn').addEventListener('click', () => {
   download('orders.csv', ['Order,Customer,Date,Total,Status', ...acctList.map(o => [o.id, o.customer, o.date, o.total, o.status].map(q).join(','))].join('\n'), 'text/csv');
 });
 
-renderSettings(); renderSite(); refresh(); applyLogo(); route();
-ensureAdminSession().then(loadAdminProducts).catch(() => {
-  sessionStorage.removeItem(SESSION_KEY);
-  location.replace('../login.html');
-});
+renderSettings(); setSettingsState('info', 'Loading settings...'); renderSite(); refresh(); applyLogo(); route();
+ensureAdminSession().then(() => Promise.all([loadSettings(), loadAdminProducts()])).catch(backToLogin);

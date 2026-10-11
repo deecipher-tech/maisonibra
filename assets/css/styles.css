@@ -1140,3 +1140,8 @@ h3 {
         height: 58px;
     }
 }
+/* ---------- Maintenance page (Admin > Settings > Platform is live = off) ---------- */
+.maint { position: fixed; inset: 0; z-index: 200; display: grid; place-content: center; gap: 12px; padding: 24px; text-align: center; background: var(--bg); color: var(--ink); }
+.maint h1 { font-size: clamp(32px, 6vw, 56px); color: var(--gold-hi); }
+.maint p { margin: 0; color: var(--muted); }
+body.is-off { overflow: hidden; }

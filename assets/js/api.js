@@ -459,10 +459,47 @@
     getSettings: () =>
       request('admin/settings'),
 
+    // payload: { settings: { general?, contact?, social?, banks? } } - only the sections sent are changed.
+    // Sent as POST + _method so hosts that block PUT/DELETE still work.
     updateSettings: payload =>
       request('admin/settings', {
-        method: 'PUT',
-        body: payload
+        method: 'POST',
+        body: { ...payload, _method: 'PUT' }
+      }),
+
+    uploadSettingsImage: file => {
+      const body = new FormData();
+      body.set('image', file);
+      return request('admin/settings/image', {
+        method: 'POST',
+        body
+      });
+    },
+
+    changePassword: (current_password, new_password) =>
+      request('admin/password', {
+        method: 'POST',
+        body: { current_password, new_password }
+      }),
+
+    // Admin categories & sub-categories (adminCategories() above lists them)
+    createCategory: category =>
+      request('admin/categories', {
+        method: 'POST',
+        body: category
+      }),
+
+    updateCategory: (id, category) =>
+      request(`admin/categories/${encodeURIComponent(id)}`, {
+        method: 'POST',
+        body: { ...category, _method: 'PUT' }
+      }),
+
+    // reassignTo: id of the category that receives the products when the deleted one still has some.
+    deleteCategory: (id, reassignTo = null) =>
+      request(`admin/categories/${encodeURIComponent(id)}`, {
+        method: 'POST',
+        body: { _method: 'DELETE', reassign_to: reassignTo }
       })
   });
 })();

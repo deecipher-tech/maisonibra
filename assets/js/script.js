@@ -52,6 +52,22 @@ async function loadStoreBranding() {
     if (settings.announce) {
       document.querySelectorAll('.announce').forEach(el => { el.textContent = settings.announce; });
     }
+    // Footer links: use the social URLs saved in Admin > Settings > Social.
+    document.querySelectorAll('.footer a[data-soon]').forEach(a => {
+      const url = (settings.social || {})[a.textContent.trim().toLowerCase()];
+      if (url) { a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.removeAttribute('data-soon'); }
+    });
+    // "Platform is live" switched off: show a back-soon page to visitors, but not to a signed-in admin.
+    if (settings.maintenance) {
+      let admin = false;
+      try { admin = (await MaisonApi.me()).account?.type === 'admin'; } catch (error) {}
+      if (!admin && !document.querySelector('.maint')) {
+        const m = document.createElement('div');
+        m.className = 'maint'; m.setAttribute('role', 'alert');
+        m.innerHTML = `<h1>${esc(store.name || 'MAISON IBRA')}</h1><p>We are updating the store and will be back soon.</p>`;
+        document.body.append(m); document.body.classList.add('is-off');
+      }
+    }
   } catch (error) {
     console.warn(error.message || error);
   }
