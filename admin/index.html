@@ -19,6 +19,7 @@
       <nav class="side-nav">
         <a href="#dashboard" data-nav="dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z"/></svg>Dashboard</a>
         <a href="#products" data-nav="products"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/></svg>Products</a>
+        <a href="#categories" data-nav="categories"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM17 14v6M14 17h6"/></svg>Categories</a>
         <a href="#orders" data-nav="orders"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg>Orders</a>
         <a href="#customers" data-nav="customers"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20c.7-3.4 3-5.1 6.5-5.1s5.8 1.7 6.5 5.1"/></svg>Customers</a>
         <a href="#account" data-nav="account"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Account</a>
@@ -64,6 +65,18 @@
           <div class="pager" id="productPager" hidden><button class="btn btn-ghost" type="button" id="prevProducts">Previous</button><p class="hint" id="productPageText"></p><button class="btn btn-ghost" type="button" id="nextProducts">Next</button></div>
         </section>
 
+        <section data-view="categories" aria-label="Categories and sub-categories" hidden>
+          <div class="bar">
+            <label class="sr" for="catSearch">Search categories</label>
+            <input id="catSearch" type="search" placeholder="Search categories" />
+            <select id="catStatusFilter" aria-label="Filter by status"><option value="">All statuses</option><option value="active">Active</option><option value="hidden">Hidden</option></select>
+            <div class="bar-btns"><button class="btn" type="button" id="addCategoryBtn">Add category</button></div>
+          </div>
+          <div class="card table-card"><div class="table-wrap">
+            <table><thead><tr><th>Name</th><th>Slug</th><th>Parent</th><th>Products</th><th>Sub-categories</th><th>Status</th><th>Order</th><th><span class="sr">Actions</span></th></tr></thead><tbody id="categoryRows"></tbody></table>
+          </div><p class="empty" id="categoriesEmpty" hidden>No categories found.</p></div>
+        </section>
+
         <section data-view="orders" aria-label="Orders" hidden>
           <div class="card table-card"><div class="table-wrap">
             <table><thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Total</th><th>Status</th></tr></thead><tbody id="orderRows"></tbody></table>
@@ -105,6 +118,7 @@
         </section>
 
         <section data-view="settings" aria-label="Settings" hidden>
+          <div class="settings-state" id="settingsState" role="status" hidden><span id="settingsStateText"></span><button class="link-btn" type="button" id="settingsRetry" hidden>Try again</button></div>
           <div class="tabs" id="settingsTabs" role="tablist" aria-label="Settings sections"></div>
           <div id="settingsPanels"></div>
         </section>
@@ -150,6 +164,33 @@
       </div>
       <p class="err" id="productErr" role="alert"></p>
       <div class="dlg-actions"><button class="btn btn-ghost" type="button" id="cancelBtn">Cancel</button><button class="btn" type="submit" id="saveProductBtn">Save product</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="categoryDialog" class="dlg-sm" aria-labelledby="catDlgTitle">
+    <form id="categoryForm" method="dialog" novalidate>
+      <h2 id="catDlgTitle">Add category</h2>
+      <input type="hidden" name="id" />
+      <div class="field"><label for="cName">Name</label><input id="cName" name="name" maxlength="160" required aria-describedby="categoryErr" /></div>
+      <div class="field"><label for="cSlug">Slug</label><input id="cSlug" name="slug" maxlength="120" pattern="[a-z0-9-]+" /><p class="hint" id="cSlugHint">Used in storefront links. Lowercase letters, numbers and hyphens.</p></div>
+      <div class="field"><label for="cParent">Parent category</label><select id="cParent" name="parent_id"></select><p class="hint" id="cParentHint">Leave as top-level, or pick a parent to create a sub-category.</p></div>
+      <div class="field"><label for="cDesc">Description <span>(optional)</span></label><textarea id="cDesc" name="description" rows="3" maxlength="500"></textarea></div>
+      <div class="two">
+        <div class="field"><label for="cSort">Display order</label><input id="cSort" name="sort_order" type="number" min="0" max="9999" step="1" inputmode="numeric" placeholder="Auto" /></div>
+        <div class="field"><label for="cStatus">Status</label><select id="cStatus" name="status"><option value="active">Active</option><option value="hidden">Hidden</option></select></div>
+      </div>
+      <p class="err" id="categoryErr" role="alert"></p>
+      <div class="dlg-actions"><button class="btn btn-ghost" type="button" id="catCancel">Cancel</button><button class="btn" type="submit" id="catSave">Save category</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="catDelDialog" class="dlg-sm" aria-labelledby="catDelTitle">
+    <form id="catDelForm" method="dialog" novalidate>
+      <h2 id="catDelTitle">Delete category</h2>
+      <p id="catDelMsg"></p>
+      <div class="field" id="catDelMoveField" hidden><label for="catDelTarget">Move its products to</label><select id="catDelTarget"></select></div>
+      <p class="err" id="catDelErr" role="alert"></p>
+      <div class="dlg-actions"><button class="btn btn-ghost" type="button" id="catDelCancel">Cancel</button><button class="btn danger" type="submit" id="catDelConfirm">Delete</button></div>
     </form>
   </dialog>
 
