@@ -11,17 +11,42 @@ let PRODUCTS = ['perfume', 'skincare', 'makeup'].flatMap(type =>
   }))
 );
 const money = n => '₦' + n.toLocaleString('en-NG');
-const view = p => ({ ...p, price: p.price == null ? '[PRICE]' : money(p.price) });
+const view = p => ({ ...p, category: p.subcategory || p.category, price: p.price == null ? '[PRICE]' : money(p.price) });
+
+/* Subcategories present in a list of products, in the order set in Admin. */
+function subcategoriesOf(list) {
+  const map = new Map();
+  list.forEach(p => {
+    if (!p.subtype) return;
+    const s = map.get(p.subtype) || { slug: p.subtype, name: p.subcategory, order: p.subOrder, count: 0 };
+    s.count++; map.set(p.subtype, s);
+  });
+  return [...map.values()].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+}
+
+/* Draws the subcategory chips (with an "All" chip first). Hidden when there are none. */
+function renderSubFilters(el, subs, active, allLabel, total, onPick) {
+  if (!el) return;
+  el.hidden = subs.length === 0;
+  el.innerHTML = subs.length ? [{ slug: '', name: allLabel, count: total }, ...subs].map(s =>
+    `<button class="chip chip-sub" type="button" data-sub="${esc(s.slug)}" aria-pressed="${s.slug === active}">${esc(s.name)} <span class="chip-count">${s.count}</span></button>`).join('') : '';
+  el.onclick = e => { const b = e.target.closest('[data-sub]'); if (b) onPick(b.dataset.sub); };
+}
 
 function apiProductToCard(p) {
-  const type = p.category?.slug || 'perfume';
+  const leaf = p.category?.slug || 'perfume';
+  const parent = p.category?.parent || null;
+  const type = parent?.slug || leaf; // top-level category: perfume | skincare | makeup
   const details = p.details || {};
   const gallery = Array.isArray(p.images) ? p.images.map(img => img.url || img.image_url).filter(Boolean) : [];
   return {
     id: p.slug || String(p.id),
     apiId: p.id,
     type,
-    category: p.category?.name || LABELS[type] || 'Product',
+    category: parent?.name || p.category?.name || LABELS[type] || 'Product',
+    subtype: parent ? leaf : '',
+    subcategory: parent ? (p.category?.name || '') : '',
+    subOrder: Number(p.category?.sort_order || 0),
     name: p.name,
     desc: p.short_description || p.description || '',
     fullDesc: p.full_description || details.full_description || p.description || '',
