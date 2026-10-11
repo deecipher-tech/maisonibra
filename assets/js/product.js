@@ -1,80 +1,96 @@
-/* Shared product data (shop + product pages). API data replaces these placeholders when available.
-   id: unique, URL-safe. type: perfume | skincare | makeup. price: number in naira or null.
-   image: card image path; images: gallery paths (optional). notes: perfume only. */
-const LABELS = { perfume: 'Perfume', skincare: 'Skincare', makeup: 'Makeup' };
-let PRODUCTS = ['perfume', 'skincare', 'makeup'].flatMap(type =>
-  [1, 2, 3, 4].map(n => ({
-    id: `${type}-${n}`, type, category: LABELS[type], name: `[${LABELS[type].toUpperCase()} NAME ${n}]`,
-    desc: '[PRODUCT DESCRIPTION]', price: null, image: '', images: [],
-    notes: type === 'perfume' ? { top: '[FRAGRANCE NOTES]', heart: '[FRAGRANCE NOTES]', base: '[FRAGRANCE NOTES]' } : null,
-    details: '[PRODUCT DETAILS — size, usage and other specifics.]'
-  }))
-);
-const money = n => '₦' + n.toLocaleString('en-NG');
-const view = p => ({ ...p, category: p.subcategory || p.category, price: p.price == null ? '[PRICE]' : money(p.price) });
+/* Product detail page. Loads the selected product from the public API by slug. */
+(async function () {
+  const root = $('#productRoot');
+  const params = new URLSearchParams(location.search);
+  const slug = params.get('slug') || params.get('id');
 
-/* Subcategories present in a list of products, in the order set in Admin. */
-function subcategoriesOf(list) {
-  const map = new Map();
-  list.forEach(p => {
-    if (!p.subtype) return;
-    const s = map.get(p.subtype) || { slug: p.subtype, name: p.subcategory, order: p.subOrder, count: 0 };
-    s.count++; map.set(p.subtype, s);
-  });
-  return [...map.values()].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
-}
-
-/* Draws the subcategory chips (with an "All" chip first). Hidden when there are none. */
-function renderSubFilters(el, subs, active, allLabel, total, onPick) {
-  if (!el) return;
-  el.hidden = subs.length === 0;
-  el.innerHTML = subs.length ? [{ slug: '', name: allLabel, count: total }, ...subs].map(s =>
-    `<button class="chip chip-sub" type="button" data-sub="${esc(s.slug)}" aria-pressed="${s.slug === active}">${esc(s.name)} <span class="chip-count">${s.count}</span></button>`).join('') : '';
-  el.onclick = e => { const b = e.target.closest('[data-sub]'); if (b) onPick(b.dataset.sub); };
-}
-
-function apiProductToCard(p) {
-  const leaf = p.category?.slug || 'perfume';
-  const parent = p.category?.parent || null;
-  const type = parent?.slug || leaf; // top-level category: perfume | skincare | makeup
-  const details = p.details || {};
-  const gallery = Array.isArray(p.images) ? p.images.map(img => img.url || img.image_url).filter(Boolean) : [];
-  return {
-    id: p.slug || String(p.id),
-    apiId: p.id,
-    type,
-    category: parent?.name || p.category?.name || LABELS[type] || 'Product',
-    subtype: parent ? leaf : '',
-    subcategory: parent ? (p.category?.name || '') : '',
-    subOrder: Number(p.category?.sort_order || 0),
-    name: p.name,
-    desc: p.short_description || p.description || '',
-    fullDesc: p.full_description || details.full_description || p.description || '',
-    price: p.price == null ? null : Number(p.price),
-    compareAtPrice: p.compare_at_price == null ? null : Number(p.compare_at_price),
-    image: p.image_url || '',
-    images: [p.image_url, ...gallery].filter(Boolean),
-    stock: Number(p.stock_quantity || 0),
-    status: p.status || (Number(p.stock_quantity || 0) > 0 ? 'active' : 'out_of_stock'),
-    featured: Boolean(p.featured),
-    notes: details.notes || null,
-    details: details.copy || details.details || p.full_description || '',
-    specifications: Array.isArray(p.specifications) ? p.specifications : []
-  };
-}
-
-async function loadProductsFromApi(params = {}) {
-  if (!window.MaisonApi) return PRODUCTS;
-  try {
-    const data = await MaisonApi.getProducts(params);
-    if (Array.isArray(data.products)) {
-      PRODUCTS = data.products.map(apiProductToCard);
-      document.dispatchEvent(new CustomEvent('maison:products', { detail: { products: PRODUCTS } }));
-    }
-  } catch (error) {
-    console.warn(error.message || error);
+  if (!slug) {
+    renderEmpty('Product not found', 'Choose a product from the shop.');
+    return;
   }
-  return PRODUCTS;
-}
 
-loadProductsFromApi();
+  root.innerHTML = '<div class="pdp-empty"><p class="label">Loading</p><h1>Loading product...</h1></div>';
+
+  try {
+    let product;
+    if (window.MaisonApi?.getProduct) {
+      const data = await MaisonApi.getProduct(slug);
+      product = apiProductToCard(data.product);
+    } else {
+      await loadProductsFromApi({ slug });
+      product = PRODUCTS.find(x => x.id === slug);
+    }
+
+    if (!product) {
+      renderEmpty('Product not found', 'This product may have moved or no longer exists.');
+      return;
+    }
+
+    renderProduct(product);
+  } catch (error) {
+    renderEmpty('Product not found', error.message || 'This product could not be loaded.');
+  }
+
+  function renderEmpty(title, message) {
+    root.innerHTML = `<div class="pdp-empty"><h1>${esc(title)}</h1><p>${esc(message)}</p><a class="btn btn-dark" href="shop.html">Back to shop</a></div>`;
+  }
+
+  function renderProduct(p) {
+    document.title = `${p.name} | MAISON IBRA`;
+    const slides = p.images.length ? p.images : [p.image].filter(Boolean);
+    const total = Math.max(slides.length, 1);
+    const slot = i => slides[i] ? `<img src="${esc(slides[i])}" alt="${esc(p.name)}, view ${i + 1}" ${i ? 'loading="lazy"' : 'fetchpriority="high"'} decoding="async">` : `<span>[PRODUCT IMAGE]</span>`;
+    const dropBroken = el => el.querySelectorAll('img').forEach(img => { const d = () => img.remove(); img.addEventListener('error', d); if (img.complete && !img.naturalWidth) d(); });
+    const price = p.compareAtPrice ? `<span class="old-price">${esc(view({ ...p, price: p.price }).price)}</span> ${esc(view({ ...p, price: p.compareAtPrice }).price)}` : esc(view(p).price);
+    const specs = p.specifications?.length ? `<details open><summary>Specifications</summary><dl class="notes">${p.specifications.map(s => `<div><dt>${esc(s.key)}</dt><dd>${esc(s.value)}</dd></div>`).join('')}</dl></details>` : '';
+    const out = p.status === 'out_of_stock' || p.stock <= 0;
+
+    root.innerHTML = `
+      <nav class="pcrumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span aria-hidden="true">/</span><a href="shop.html">Shop</a><span aria-hidden="true">/</span><a href="shop.html?category=${esc(p.type)}">${esc(p.category)}</a>${p.subcategory ? `<span aria-hidden="true">/</span><a href="shop.html?category=${esc(p.type)}&sub=${esc(p.subtype)}">${esc(p.subcategory)}</a>` : ''}<span aria-hidden="true">/</span><span aria-current="page">${esc(p.name)}</span></nav>
+      <div class="pdp">
+        <div class="gallery">
+          <div class="ph ph-card" id="mainImg">${slot(0)}</div>
+          <div class="thumbs">${Array.from({ length: total }, (_, i) => `<button class="thumb" type="button" data-i="${i}" aria-label="Show image ${i + 1}" aria-current="${i === 0}"><span class="ph">${slides[i] ? `<img src="${esc(slides[i])}" alt="" loading="lazy">` : `<span>${i + 1}</span>`}</span></button>`).join('')}</div>
+        </div>
+        <div class="pinfo">
+          <p class="label">${esc(p.subcategory ? `${p.category} · ${p.subcategory}` : p.category)}</p>
+          <h1>${esc(p.name)}</h1>
+          <p class="pprice">${price}</p>
+          <p class="pdesc">${esc(p.fullDesc || p.desc)}</p>
+          <p class="stock-line">${out ? 'Out of stock' : `${p.stock} available`}</p>
+          <div class="buy">
+            <div class="qty" role="group" aria-label="Quantity"><button type="button" data-step="-1" aria-label="Decrease quantity">-</button><output id="qty" aria-live="polite">1</output><button type="button" data-step="1" aria-label="Increase quantity">+</button></div>
+            <button class="btn" type="button" id="addBtn" ${out ? 'disabled' : ''}>${out ? 'Out of stock' : 'Add to bag'}</button>
+            <button class="btn-icon" type="button" id="wishBtn" aria-pressed="false" aria-label="Add to wishlist">${heart}</button>
+          </div>
+          <div class="accordion">${specs}
+            <details open><summary>Product details</summary><p>${esc(p.fullDesc || p.details || p.desc)}</p></details>
+            <details><summary>Delivery &amp; returns</summary><p>Complimentary delivery on orders above ₦150,000.</p></details>
+          </div>
+        </div>
+      </div>`;
+    dropBroken(root);
+
+    const main = $('#mainImg');
+    root.querySelectorAll('.thumb').forEach(t => t.addEventListener('click', () => {
+      main.innerHTML = slot(+t.dataset.i); dropBroken(main);
+      root.querySelectorAll('.thumb').forEach(x => x.setAttribute('aria-current', x === t));
+    }));
+    let qty = 1; const outQty = $('#qty');
+    root.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => { qty = Math.min(Math.max(p.stock || 1, 1), Math.max(1, qty + +b.dataset.step)); outQty.textContent = qty; }));
+    $('#addBtn')?.addEventListener('click', () => { if (!out) addToBag(p.name, qty); });
+    $('#wishBtn').addEventListener('click', e => {
+      const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+      e.currentTarget.setAttribute('aria-pressed', on);
+      e.currentTarget.setAttribute('aria-label', on ? 'Remove from wishlist' : 'Add to wishlist');
+      showToast(on ? 'Saved to your wishlist.' : 'Removed from your wishlist.');
+    });
+
+    const score = x => (x.subtype && x.subtype === p.subtype ? 2 : 0) + (x.type === p.type ? 1 : 0);
+    const rel = PRODUCTS.filter(x => x.id !== p.id).sort((a, b) => score(b) - score(a)).slice(0, 4);
+    $('#relatedGrid').innerHTML = rel.map(x => card(view(x))).join('');
+    $('#related').hidden = rel.length === 0;
+    dropBroken($('#relatedGrid'));
+    observeReveals();
+  }
+})();
