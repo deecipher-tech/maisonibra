@@ -21,7 +21,7 @@ const cur = () => settings.general?.currency || '₦';
 const fmt = n => n == null || n === '' ? '—' : cur() + Number(n).toLocaleString('en-NG');
 const CATS = { perfume: 'Perfume', skincare: 'Skincare', makeup: 'Makeup' };
 const ORDERS = [];                                  // filled from the API by loadOrders(): { id (order no.), dbId, customer, email, phone, date:'YYYY-MM-DD', total, status, payment, fulfilment, receipt }
-const CUSTOMERS = store.get('ibra_customers', []); // { name, email, orders }
+const customerSummary = { total: 0, active: 0, disabled: 0 }; // filled by loadCustomers()
 
 /* ---------- Navigation ---------- */
 const TITLES = { dashboard: 'Dashboard', products: 'Products', categories: 'Categories & Sub-categories', orders: 'Orders', customers: 'Customers', account: 'Account', storefront: 'Storefront', settings: 'Settings' };
@@ -35,6 +35,7 @@ function route() {
   document.title = `${TITLES[v]} | MAISON IBRA Admin`;
   if (v === 'account') renderAccount();
   if (v === 'categories') renderCategories();
+  if (v === 'customers') loadCustomers();
   setSide(false);
 }
 burger.addEventListener('click', () => setSide(!side.classList.contains('open')));
@@ -615,6 +616,83 @@ $('#categoryRows').addEventListener('click', e => {
 $('#catSearch').addEventListener('input', renderCategories);
 $('#catStatusFilter').addEventListener('change', renderCategories);
 
+/* ---------- Customers (registered accounts, from the API) ---------- */
+const CU_PAGE = 20;
+let cuPage = 1, cuSeq = 0, cuTimer, cuOpen = null;
+const cuDate = s => String(s || '').slice(0, 10) || '—';
+const cuBadge = s => `<span class="badge ${s === 'disabled' ? 'out_of_stock' : ''}">${s === 'disabled' ? 'Disabled' : 'Active'}</span>`;
+function paintCustomerSummary() {
+  $('#cuTotal').textContent = customerSummary.total; $('#cuActive').textContent = customerSummary.active; $('#cuDisabled').textContent = customerSummary.disabled;
+  $('#sCustomers').textContent = customerSummary.total;
+}
+async function loadCustomers() {
+  if (!window.MaisonApi) return;
+  const seq = ++cuSeq;
+  try {
+    const params = { page: cuPage, per_page: CU_PAGE };
+    const q = $('#cuSearch').value.trim(), st = $('#cuStatus').value;
+    if (q) params.q = q; if (st) params.status = st;
+    const data = await MaisonApi.adminCustomers(params);
+    if (seq !== cuSeq) return; // a newer search replaced this request
+    const pg = data.pagination; cuPage = pg.page;
+    Object.assign(customerSummary, data.summary);
+    paintCustomerSummary();
+    $('#customerRows').innerHTML = data.customers.map(c => `<tr><td><div class="pname">${esc(c.name)}</div><div class="pdesc">${esc(c.email)}</div></td><td>${esc(c.phone || '—')}</td><td>${esc(c.order_count)}</td><td>${fmt(c.total_spent)}</td><td>${esc(cuDate(c.last_order_at))}</td><td>${esc(cuDate(c.created_at))}</td><td>${cuBadge(c.status)}</td><td><div class="row-btns"><button class="act" type="button" data-cu-view="${c.id}" title="View" aria-label="View ${esc(c.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></td></tr>`).join('');
+    $('#customersEmpty').hidden = data.customers.length > 0;
+    $('#customerPager').hidden = pg.total_pages <= 1;
+    $('#customerPageText').textContent = `Page ${pg.page} of ${pg.total_pages} (${pg.total} customers)`;
+    $('#prevCustomers').disabled = pg.page <= 1; $('#nextCustomers').disabled = pg.page >= pg.total_pages;
+  } catch (error) {
+    if (seq !== cuSeq) return;
+    if (error.status === 401) return backToLogin();
+    toast(error.message || 'Could not load customers.');
+  }
+}
+$('#cuSearch').addEventListener('input', () => { clearTimeout(cuTimer); cuTimer = setTimeout(() => { cuPage = 1; loadCustomers(); }, 300); });
+$('#cuStatus').addEventListener('change', () => { cuPage = 1; loadCustomers(); });
+$('#prevCustomers').addEventListener('click', () => { cuPage--; loadCustomers(); });
+$('#nextCustomers').addEventListener('click', () => { cuPage++; loadCustomers(); });
+
+const cuDlg = $('#customerDialog');
+function paintCustomerDialog(c) {
+  cuOpen = c;
+  $('#cuDlgTitle').textContent = c.name;
+  $('#cuFacts').innerHTML = [['Email', c.email], ['Phone', c.phone || '—'], ['Status', null], ['Joined', cuDate(c.created_at)], ['Orders', c.order_count], ['Total spent', fmt(c.total_spent)], ['Last order', cuDate(c.last_order_at)]]
+    .map(([k, v]) => `<div><dt>${k}</dt><dd>${v === null ? cuBadge(c.status) : esc(v)}</dd></div>`).join('');
+  $('#cuOrders').innerHTML = (c.orders || []).map(o => `<tr><td><strong>${esc(o.order_number)}</strong></td><td>${esc(cuDate(o.created_at))}</td><td>${esc(o.item_count)}</td><td>${fmt(o.total)}</td><td>${esc(o.payment_status)}</td><td>${esc(o.fulfillment_status)}</td></tr>`).join('');
+  $('#cuOrdersEmpty').hidden = (c.orders || []).length > 0;
+  paintCustomerToggle();
+}
+function paintCustomerToggle() {
+  const off = cuOpen?.status === 'disabled', btn = $('#cuToggle');
+  btn.textContent = off ? 'Enable customer' : 'Disable customer';
+  btn.classList.toggle('danger', !off);
+}
+$('#customerRows').addEventListener('click', async e => {
+  const b = e.target.closest('[data-cu-view]'); if (!b) return;
+  $('#cuErr').textContent = '';
+  try {
+    const data = await MaisonApi.adminCustomer(b.dataset.cuView);
+    paintCustomerDialog(data.customer); cuDlg.showModal();
+  } catch (error) { if (error.status === 401) return backToLogin(); toast(error.message || 'Could not load the customer.'); }
+});
+$('#cuClose').addEventListener('click', () => cuDlg.close());
+$('#cuToggle').addEventListener('click', async () => {
+  if (!cuOpen) return;
+  const next = cuOpen.status === 'disabled' ? 'active' : 'disabled', btn = $('#cuToggle');
+  if (next === 'disabled' && !confirm(`Disable ${cuOpen.name}? They will be signed out and unable to sign in until you enable them again.`)) return;
+  $('#cuErr').textContent = ''; setBusy(btn, true, 'Saving...');
+  try {
+    const res = await MaisonApi.updateCustomer(cuOpen.id, { status: next });
+    paintCustomerDialog({ ...cuOpen, ...res.customer, orders: cuOpen.orders });
+    toast(next === 'disabled' ? 'Customer disabled.' : 'Customer enabled.');
+    loadCustomers();
+  } catch (error) {
+    if (error.status === 401) return backToLogin();
+    $('#cuErr').textContent = (error.details && error.details.status) || error.message || 'Could not update the customer.';
+  } finally { setBusy(btn, false); paintCustomerToggle(); } // setBusy restores the pre-request label, so repaint it from the current status
+});
+
 /* ---------- Orders, customers, dashboard ---------- */
 const orderRow = o => `<tr><td>${esc(o.id)}</td><td>${esc(o.customer)}</td><td>${esc(o.date)}</td><td>${fmt(o.total)}</td><td>${esc(o.status)}</td></tr>`;
 const PAY = ['pending', 'paid', 'failed', 'refunded'], FUL = ['new', 'processing', 'shipped', 'delivered', 'cancelled'];
@@ -656,11 +734,10 @@ $('#orderRows').addEventListener('change', async e => {
 });
 function renderTables() {
   $('#orderRows').innerHTML = ORDERS.map(orderAdminRow).join(''); $('#ordersEmpty').hidden = ORDERS.length > 0;
-  $('#customerRows').innerHTML = CUSTOMERS.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.email)}</td><td>${esc(c.orders)}</td></tr>`).join(''); $('#customersEmpty').hidden = CUSTOMERS.length > 0;
 }
 function renderStats() {
   $('#sProducts').textContent = items.length; $('#sActive').textContent = items.filter(p => p.status === 'active').length;
-  $('#sOrders').textContent = ORDERS.length; $('#sCustomers').textContent = CUSTOMERS.length;
+  $('#sOrders').textContent = ORDERS.length; $('#sCustomers').textContent = customerSummary.total;
 }
 const refresh = () => { renderStats(); renderProducts(); renderTables(); };
 
@@ -696,4 +773,4 @@ $('#csvBtn').addEventListener('click', () => {
 });
 
 renderSettings(); setSettingsState('info', 'Loading settings...'); renderSite(); refresh(); applyLogo(); route();
-ensureAdminSession().then(() => Promise.all([loadSettings(), loadAdminProducts(), loadOrders()])).catch(backToLogin);
+ensureAdminSession().then(() => Promise.all([loadSettings(), loadAdminProducts(), loadOrders(), loadCustomers()])).catch(backToLogin);

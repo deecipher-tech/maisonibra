@@ -932,3 +932,15 @@ dialog.dlg-sm { width: min(520px, calc(100vw - 32px)); }
 td select { min-height: 34px; padding: 0 8px; border: 1px solid rgba(0, 0, 0, .2); border-radius: 6px; background: #fff; font: inherit; }
 td select:disabled { opacity: .55; }
 @media (min-width: 700px) { .bank-row { grid-template-columns: 1fr 1fr 1fr auto auto; } }
+
+/* ---------- Customers ---------- */
+.stats-3 { grid-template-columns: repeat(3, 1fr); }
+.stats-3 .stat strong { font-size: 30px; }
+#customerDialog { width: min(760px, calc(100vw - 32px)); }
+.cu-dlg { padding: 24px; display: grid; gap: 14px; }
+.cu-facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 20px; }
+.cu-facts div { padding: 10px 12px; border: 1px solid var(--hair); border-radius: 8px; }
+.cu-facts dt { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); }
+.cu-facts dd { margin: 4px 0 0; font-weight: 500; overflow-wrap: anywhere; }
+.cu-h { margin: 6px 0 0; font: 600 22px var(--serif); }
+.cu-orders { min-width: 480px; }

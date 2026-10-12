@@ -479,6 +479,19 @@
       });
     },
 
+    // Admin customers: params = { q, status, page, per_page }
+    adminCustomers: (params = {}) =>
+      request(`admin/customers?${new URLSearchParams(params)}`),
+
+    adminCustomer: id =>
+      request(`admin/customers/${encodeURIComponent(id)}`),
+
+    updateCustomer: (id, changes) =>
+      request(`admin/customers/${encodeURIComponent(id)}`, {
+        method: 'POST',
+        body: { ...changes, _method: 'PUT' }
+      }),
+
     // Admin orders
     adminOrders: () =>
       request('admin/orders'),
