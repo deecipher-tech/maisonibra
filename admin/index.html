@@ -79,14 +79,26 @@
 
         <section data-view="orders" aria-label="Orders" hidden>
           <div class="card table-card"><div class="table-wrap">
-            <table><thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Total</th><th>Status</th></tr></thead><tbody id="orderRows"></tbody></table>
-          </div><p class="empty" id="ordersEmpty">No orders yet. Orders will appear here once checkout is connected.</p></div>
+            <table><thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Total</th><th>Payment</th><th>Fulfilment</th><th>Receipt</th></tr></thead><tbody id="orderRows"></tbody></table>
+          </div><p class="empty" id="ordersEmpty">No orders yet.</p></div>
         </section>
 
         <section data-view="customers" aria-label="Customers" hidden>
+          <div class="stats stats-3">
+            <div class="stat"><p>Registered customers</p><strong id="cuTotal">0</strong></div>
+            <div class="stat"><p>Active</p><strong id="cuActive">0</strong></div>
+            <div class="stat"><p>Disabled</p><strong id="cuDisabled">0</strong></div>
+          </div>
+          <div class="bar">
+            <label class="sr" for="cuSearch">Search customers</label>
+            <input id="cuSearch" type="search" placeholder="Search by name, email or phone" />
+            <select id="cuStatus" aria-label="Filter by status"><option value="">All statuses</option><option value="active">Active</option><option value="disabled">Disabled</option></select>
+          </div>
           <div class="card table-card"><div class="table-wrap">
-            <table><thead><tr><th>Name</th><th>Email</th><th>Orders</th></tr></thead><tbody id="customerRows"></tbody></table>
-          </div><p class="empty" id="customersEmpty">No customers yet.</p></div>
+            <table><thead><tr><th>Customer</th><th>Phone</th><th>Orders</th><th>Total spent</th><th>Last order</th><th>Joined</th><th>Status</th><th><span class="sr">Actions</span></th></tr></thead><tbody id="customerRows"></tbody></table>
+          </div><p class="empty" id="customersEmpty" hidden>No customers found.</p></div>
+          <p class="hint">Only registered accounts are listed. Guests who check out without an account appear on their orders. Customers with orders cannot be deleted, so disable them instead.</p>
+          <div class="pager" id="customerPager" hidden><button class="btn btn-ghost" type="button" id="prevCustomers">Previous</button><p class="hint" id="customerPageText"></p><button class="btn btn-ghost" type="button" id="nextCustomers">Next</button></div>
         </section>
 
         <section data-view="account" aria-label="Account" hidden>
@@ -182,6 +194,18 @@
       <p class="err" id="categoryErr" role="alert"></p>
       <div class="dlg-actions"><button class="btn btn-ghost" type="button" id="catCancel">Cancel</button><button class="btn" type="submit" id="catSave">Save category</button></div>
     </form>
+  </dialog>
+
+  <dialog id="customerDialog" aria-labelledby="cuDlgTitle">
+    <div class="cu-dlg">
+      <h2 id="cuDlgTitle">Customer</h2>
+      <dl class="cu-facts" id="cuFacts"></dl>
+      <h3 class="cu-h">Orders</h3>
+      <div class="table-wrap"><table class="cu-orders"><thead><tr><th>Order</th><th>Date</th><th>Items</th><th>Total</th><th>Payment</th><th>Fulfilment</th></tr></thead><tbody id="cuOrders"></tbody></table></div>
+      <p class="empty" id="cuOrdersEmpty" hidden>This customer has not placed any orders yet.</p>
+      <p class="err" id="cuErr" role="alert"></p>
+      <div class="dlg-actions"><button class="btn btn-ghost" type="button" id="cuClose">Close</button><button class="btn" type="button" id="cuToggle">Disable customer</button></div>
+    </div>
   </dialog>
 
   <dialog id="catDelDialog" class="dlg-sm" aria-labelledby="catDelTitle">
