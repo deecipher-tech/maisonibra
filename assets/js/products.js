@@ -77,4 +77,22 @@ async function loadProductsFromApi(params = {}) {
   return PRODUCTS;
 }
 
-loadProductsFromApi();
+/* Pagination controls: Prev, 1 ... 4 5 6 ... 20, Next. pg = the `pagination` object returned by the API. */
+function renderPager(el, pg, onPick) {
+  if (!el) return;
+  const total = pg?.total_pages || 1, page = pg?.page || 1;
+  el.hidden = total <= 1;
+  if (total <= 1) { el.innerHTML = ''; el.onclick = null; return; }
+  const shown = [...new Set([1, 2, page - 1, page, page + 1, total - 1, total])].filter(n => n >= 1 && n <= total).sort((a, b) => a - b);
+  let html = `<button class="pg pg-nav" type="button" data-page="${page - 1}" aria-label="Previous page" ${page <= 1 ? 'disabled' : ''}>Prev</button>`;
+  shown.forEach((n, i) => {
+    if (i && n - shown[i - 1] > 1) html += '<span class="pg-gap" aria-hidden="true">&hellip;</span>';
+    html += `<button class="pg" type="button" data-page="${n}" aria-label="Page ${n}" ${n === page ? 'aria-current="page"' : ''}>${n}</button>`;
+  });
+  html += `<button class="pg pg-nav" type="button" data-page="${page + 1}" aria-label="Next page" ${page >= total ? 'disabled' : ''}>Next</button>`;
+  el.innerHTML = html;
+  el.onclick = e => { const b = e.target.closest('[data-page]'); if (b && !b.disabled) onPick(+b.dataset.page); };
+}
+
+/* Shop and category pages request one page at a time from the API (data-paginated); other pages still load the full list. */
+if (!document.querySelector('[data-paginated]')) loadProductsFromApi();

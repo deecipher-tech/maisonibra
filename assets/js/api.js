@@ -189,7 +189,8 @@
     // Prevent unsafe methods from being silently issued without CSRF.
     const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
     // Sign-in endpoints are public: a guest has no token yet, and the server issues one after login.
-    const csrfExempt = ['auth/login', 'auth/register', 'auth/logout'].includes(endpoint);
+    // Guests have no session (and so no token) when they browse, quote a bag or check out; a signed-in customer's token is still sent.
+    const csrfExempt = ['auth/login', 'auth/register', 'auth/logout', 'public/cart/quote', 'public/orders'].includes(endpoint.split('?')[0]);
     let csrfToken = getCsrfToken();
 
     if (!safeMethods.includes(method)) {
@@ -396,6 +397,29 @@
     getProduct: slug =>
       request(`public/products/${encodeURIComponent(slug)}?${withDomain({})}`),
 
+    // Storefront: category tree with product counts, paginated products, bank accounts, bag pricing, checkout
+    getCategories: () =>
+      request(`public/categories?${withDomain()}`),
+
+    getBankAccounts: () =>
+      request(`public/bank-accounts?${withDomain()}`),
+
+    quoteCart: items =>
+      request(`public/cart/quote?${withDomain()}`, {
+        method: 'POST',
+        body: { items }
+      }),
+
+    // formData: items (JSON), idempotency_key, payment_confirmed, full_name/email/phone (guests), receipt (file, optional)
+    placeOrder: async formData => {
+      await ensureCsrfToken().catch(() => null); // lets a signed-in customer's token be attached
+      return request(`public/orders?${withDomain()}`, {
+        method: 'POST',
+        body: formData,
+        timeout: 90000
+      });
+    },
+
     // Authentication
     login: (email, password) =>
       request('auth/login', {
@@ -454,6 +478,19 @@
         body
       });
     },
+
+    // Admin orders
+    adminOrders: () =>
+      request('admin/orders'),
+
+    updateOrder: (id, changes) =>
+      request(`admin/orders/${encodeURIComponent(id)}`, {
+        method: 'POST',
+        body: { ...changes, _method: 'PUT' }
+      }),
+
+    orderReceiptUrl: id =>
+      `${API_BASE}/admin/orders/${encodeURIComponent(id)}/receipt`,
 
     // Admin settings
     getSettings: () =>

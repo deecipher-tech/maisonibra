@@ -78,7 +78,7 @@
     }));
     let qty = 1; const outQty = $('#qty');
     root.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => { qty = Math.min(Math.max(p.stock || 1, 1), Math.max(1, qty + +b.dataset.step)); outQty.textContent = qty; }));
-    $('#addBtn')?.addEventListener('click', () => { if (!out) addToBag(p.name, qty); });
+    $('#addBtn')?.addEventListener('click', () => { if (!out) addToBag(p.name, qty, p.apiId); });
     $('#wishBtn').addEventListener('click', e => {
       const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
       e.currentTarget.setAttribute('aria-pressed', on);

@@ -20,7 +20,7 @@ const adminAsset = v => /^\.\//.test(v || '') ? '.' + v : (v || ''); // './asset
 const cur = () => settings.general?.currency || '₦';
 const fmt = n => n == null || n === '' ? '—' : cur() + Number(n).toLocaleString('en-NG');
 const CATS = { perfume: 'Perfume', skincare: 'Skincare', makeup: 'Makeup' };
-const ORDERS = store.get('ibra_orders', []);       // { id, customer, date:'YYYY-MM-DD', total, status }
+const ORDERS = [];                                  // filled from the API by loadOrders(): { id (order no.), dbId, customer, email, phone, date:'YYYY-MM-DD', total, status, payment, fulfilment, receipt }
 const CUSTOMERS = store.get('ibra_customers', []); // { name, email, orders }
 
 /* ---------- Navigation ---------- */
@@ -178,16 +178,16 @@ $('#settingsRetry').addEventListener('click', loadSettings);
 
 const groupForm = k => `<form class="pform" data-group="${k}" novalidate>${SETTINGS[k].map(f => fieldHTML(f, settings)).join('')}<p class="err" role="alert"></p><div><button class="btn" type="submit">Save changes</button></div></form>`;
 function bankRows() {
-  $('#bankList').innerHTML = banks.length ? banks.map((b, i) => `<div class="bank-row"><div class="field"><label for="bk${i}">Bank name</label><input id="bk${i}" data-bank="${i}.bank" maxlength="120" value="${esc(b.bank)}"></div><div class="field"><label for="bn${i}">Account name</label><input id="bn${i}" data-bank="${i}.name" maxlength="160" value="${esc(b.name)}"></div><div class="field"><label for="bu${i}">Account number</label><input id="bu${i}" data-bank="${i}.number" inputmode="numeric" maxlength="20" value="${esc(b.number)}"></div><button type="button" class="link-btn del" data-rmbank="${i}">Remove bank</button></div>`).join('') : '<p class="hint">No bank accounts yet. Add one to receive payments.</p>';
+  $('#bankList').innerHTML = banks.length ? banks.map((b, i) => `<div class="bank-row"><div class="field"><label for="bk${i}">Bank name</label><input id="bk${i}" data-bank="${i}.bank" maxlength="120" value="${esc(b.bank)}"></div><div class="field"><label for="bn${i}">Account name</label><input id="bn${i}" data-bank="${i}.name" maxlength="160" value="${esc(b.name)}"></div><div class="field"><label for="bu${i}">Account number</label><input id="bu${i}" data-bank="${i}.number" inputmode="numeric" maxlength="20" value="${esc(b.number)}"></div><div class="field"><label class="switch"><input type="checkbox" data-bank="${i}.active" ${b.active === false ? '' : 'checked'}><span class="knob"></span><span>Active</span></label><p class="hint">Only active accounts are shown at checkout.</p></div><button type="button" class="link-btn del" data-rmbank="${i}">Remove bank</button></div>`).join('') : '<p class="hint">No bank accounts yet. Add one to receive payments.</p>';
 }
-function readBanks() { $$('[data-bank]').forEach(el => { const [i, k] = el.dataset.bank.split('.'); if (banks[i]) banks[i][k] = el.value.trim(); }); }
+function readBanks() { $$('[data-bank]').forEach(el => { const [i, k] = el.dataset.bank.split('.'); if (banks[i]) banks[i][k] = el.type === 'checkbox' ? el.checked : el.value.trim(); }); }
 
 function renderSettings() {
   $('#settingsTabs').innerHTML = STABS.map(([k, l]) => `<button type="button" role="tab" id="tab-${k}" aria-controls="panel-${k}" aria-selected="${k === activeTab}" tabindex="${k === activeTab ? 0 : -1}" data-tab="${k}">${l}</button>`).join('');
   const panel = (k, body) => `<div class="card" role="tabpanel" id="panel-${k}" aria-labelledby="tab-${k}" ${k === activeTab ? '' : 'hidden'}>${body}</div>`;
   $('#settingsPanels').innerHTML =
     panel('general', groupForm('general')) +
-    panel('payments', `<form class="pform" id="bankForm" novalidate><p class="hint">Bank accounts customers can pay into. Add as many as you need (up to 10).</p><div id="bankList" class="bank-list"></div><p class="err" id="bankErr" role="alert"></p><div class="actions-row"><button type="button" class="btn btn-ghost" id="addBank">Add bank</button><button class="btn" type="submit">Save banks</button></div></form>`) +
+    panel('payments', `<form class="pform" id="bankForm" novalidate><p class="hint">Bank accounts customers can pay into at checkout. Switch an account off to hide it without deleting it (up to 10 accounts).</p><div id="bankList" class="bank-list"></div><p class="err" id="bankErr" role="alert"></p><div class="actions-row"><button type="button" class="btn btn-ghost" id="addBank">Add bank</button><button class="btn" type="submit">Save banks</button></div></form>`) +
     panel('contact', groupForm('contact')) + panel('social', groupForm('social')) +
     panel('security', `<form class="pform" id="pwForm" novalidate><div class="field"><label for="curPw">Current password</label><input id="curPw" type="password" autocomplete="current-password"></div><div class="field"><label for="newPw">New password</label><input id="newPw" type="password" autocomplete="new-password"></div><div class="field"><label for="newPw2">Confirm new password</label><input id="newPw2" type="password" autocomplete="new-password"></div><p class="err" id="pwErr" role="alert"></p><div><button class="btn" type="submit">Change password</button></div></form>`);
   bankRows();
@@ -253,7 +253,7 @@ $('#settingsPanels').addEventListener('submit', async e => {
 $('#settingsPanels').addEventListener('click', e => {
   if (e.target.id === 'addBank') {
     if (banks.length >= 10) return toast('You can save up to 10 bank accounts.');
-    readBanks(); banks.push({ bank: '', name: '', number: '' }); bankRows();
+    readBanks(); banks.push({ bank: '', name: '', number: '', active: true }); bankRows();
   }
   const rm = e.target.closest('[data-rmbank]');
   if (rm) { readBanks(); banks.splice(+rm.dataset.rmbank, 1); bankRows(); }
@@ -617,8 +617,45 @@ $('#catStatusFilter').addEventListener('change', renderCategories);
 
 /* ---------- Orders, customers, dashboard ---------- */
 const orderRow = o => `<tr><td>${esc(o.id)}</td><td>${esc(o.customer)}</td><td>${esc(o.date)}</td><td>${fmt(o.total)}</td><td>${esc(o.status)}</td></tr>`;
+const PAY = ['pending', 'paid', 'failed', 'refunded'], FUL = ['new', 'processing', 'shipped', 'delivered', 'cancelled'];
+const opts = (list, cur) => list.map(v => `<option value="${v}" ${v === cur ? 'selected' : ''}>${v[0].toUpperCase() + v.slice(1)}</option>`).join('');
+const orderAdminRow = o => {
+  const locked = o.fulfilment === 'cancelled';
+  return `<tr><td><strong>${esc(o.id)}</strong></td><td><div class="pname">${esc(o.customer)}</div><div class="pdesc">${esc(o.email)}${o.phone ? ' · ' + esc(o.phone) : ''}</div></td><td>${esc(o.date)}</td><td>${fmt(o.total)}</td>`
+    + `<td><select data-order-pay="${o.dbId}" aria-label="Payment status for ${esc(o.id)}" ${locked ? 'disabled' : ''}>${opts(PAY, o.payment)}</select></td>`
+    + `<td><select data-order-ful="${o.dbId}" aria-label="Fulfilment status for ${esc(o.id)}" ${locked ? 'disabled' : ''}>${opts(FUL, o.fulfilment)}</select></td>`
+    + `<td>${o.receipt ? `<a class="link-btn" href="${esc(MaisonApi.orderReceiptUrl(o.dbId))}" target="_blank" rel="noopener">View</a>` : '<span class="pdesc">None</span>'}</td></tr>`;
+};
+async function loadOrders() {
+  if (!window.MaisonApi) return;
+  try {
+    const data = await MaisonApi.adminOrders();
+    ORDERS.length = 0;
+    (data.orders || []).forEach(o => ORDERS.push({
+      id: o.order_number, dbId: o.id, customer: o.customer_name, email: o.customer_email, phone: o.customer_phone || '', date: String(o.created_at || '').slice(0, 10), total: o.total,
+      payment: o.payment_status, fulfilment: o.fulfillment_status, receipt: o.has_receipt,
+      // single status used by the Account report: cancelled / pending (awaiting payment verification) / failed / refunded / else the fulfilment stage
+      status: o.fulfillment_status === 'cancelled' ? 'cancelled' : o.payment_status === 'paid' ? o.fulfillment_status : o.payment_status
+    }));
+    refresh();
+  } catch (error) {
+    if (error.status === 401) return backToLogin();
+    toast(error.message || 'Could not load orders.');
+  }
+}
+$('#orderRows').addEventListener('change', async e => {
+  const pay = e.target.closest('[data-order-pay]'), ful = e.target.closest('[data-order-ful]');
+  if (!pay && !ful) return;
+  const sel = pay || ful;
+  sel.disabled = true;
+  try {
+    await MaisonApi.updateOrder(pay ? pay.dataset.orderPay : ful.dataset.orderFul, pay ? { payment_status: sel.value } : { fulfillment_status: sel.value });
+    toast('Order updated.');
+  } catch (error) { toast(error.message || 'Could not update the order.'); }
+  await loadOrders(); // re-render with what the server stored (also resets the select after a refusal)
+});
 function renderTables() {
-  $('#orderRows').innerHTML = ORDERS.map(orderRow).join(''); $('#ordersEmpty').hidden = ORDERS.length > 0;
+  $('#orderRows').innerHTML = ORDERS.map(orderAdminRow).join(''); $('#ordersEmpty').hidden = ORDERS.length > 0;
   $('#customerRows').innerHTML = CUSTOMERS.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.email)}</td><td>${esc(c.orders)}</td></tr>`).join(''); $('#customersEmpty').hidden = CUSTOMERS.length > 0;
 }
 function renderStats() {
@@ -638,7 +675,7 @@ function renderAccount() {
   if (!custom) { const [a, b] = RANGES[r](); $('#from').value = a; $('#to').value = b; }
   const from = $('#from').value, to = $('#to').value;
   acctList = ORDERS.filter(o => (!from || o.date >= from) && (!to || o.date <= to));
-  const valid = acctList.filter(o => o.status !== 'cancelled'), rev = valid.reduce((s, o) => s + (+o.total || 0), 0);
+  const valid = acctList.filter(o => !['cancelled', 'pending', 'failed', 'refunded'].includes(o.status)), rev = valid.reduce((s, o) => s + (+o.total || 0), 0);
   $('#aRevenue').textContent = fmt(rev); $('#aOrders').textContent = acctList.length;
   $('#aAvg').textContent = valid.length ? fmt(Math.round(rev / valid.length)) : '—';
   $('#aCustomers').textContent = new Set(acctList.map(o => o.customer)).size;
@@ -659,4 +696,4 @@ $('#csvBtn').addEventListener('click', () => {
 });
 
 renderSettings(); setSettingsState('info', 'Loading settings...'); renderSite(); refresh(); applyLogo(); route();
-ensureAdminSession().then(() => Promise.all([loadSettings(), loadAdminProducts()])).catch(backToLogin);
+ensureAdminSession().then(() => Promise.all([loadSettings(), loadAdminProducts(), loadOrders()])).catch(backToLogin);

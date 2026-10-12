@@ -23,3 +23,12 @@
 .chip.chip-sub[aria-pressed=true]{background:transparent;color:var(--ink);border-color:var(--ink);box-shadow:inset 0 -2px 0 var(--gold)}
 .chip-count{font-size:10px;color:var(--muted)}
 @media(min-width:700px){.filter-stack{flex:0 1 auto}.subfilters{margin:0;padding:0}}
+/* ---------- Pagination ---------- */
+.pagination{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;margin-top:clamp(36px,5vw,64px)}
+.pagination[hidden]{display:none}
+.pg{min-width:44px;min-height:44px;padding:0 14px;background:none;border:1px solid var(--line);color:var(--ink);font-size:12px;letter-spacing:.1em;cursor:pointer;transition:background .3s,color .3s,border-color .3s}
+.pg:hover:not(:disabled){border-color:var(--ink)}
+.pg[aria-current=page]{background:var(--black);color:var(--white);border-color:var(--black);cursor:default}
+.pg:disabled{opacity:.35;cursor:not-allowed}
+.pg-nav{font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:0 18px}
+.pg-gap{min-width:20px;text-align:center;color:var(--muted)}

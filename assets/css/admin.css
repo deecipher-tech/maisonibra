@@ -927,3 +927,8 @@ dialog.dlg-sm { width: min(520px, calc(100vw - 32px)); }
 .field [aria-invalid=true] { border-color: var(--danger); }
 .act-spacer { width: 34px; flex: none; }
 .btn[hidden] { display: none; }
+
+/* ---------- Orders table + bank rows ---------- */
+td select { min-height: 34px; padding: 0 8px; border: 1px solid rgba(0, 0, 0, .2); border-radius: 6px; background: #fff; font: inherit; }
+td select:disabled { opacity: .55; }
+@media (min-width: 700px) { .bank-row { grid-template-columns: 1fr 1fr 1fr auto auto; } }
