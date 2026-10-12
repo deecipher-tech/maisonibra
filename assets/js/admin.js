@@ -1,6 +1,7 @@
 /* Admin dashboard. Products, categories, settings and the password are saved through the API (MaisonApi).
    The storefront editor, orders and customers still use this browser's localStorage (ibra_* keys). */
-if (!sessionStorage.getItem(SESSION_KEY)) location.replace('../login.html');
+/* The server session (cookie) decides who is signed in: see ensureAdminSession(). sessionStorage is per tab and phones
+   discard or restore tabs freely, so it must not be used as the gate. */
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -64,11 +65,20 @@ $('#logout').addEventListener('click', async e => {
 });
 async function ensureAdminSession() {
   if (!window.MaisonApi) return;
-  const data = await MaisonApi.me();
-  if (data.account?.type !== 'admin') {
-    sessionStorage.removeItem(SESSION_KEY);
-    location.replace('../login.html');
+  let data;
+  try {
+    data = await MaisonApi.me();
+  } catch (error) {
+    if (error.status) throw error;                    // the server answered: respect it
+    await new Promise(r => setTimeout(r, 800));       // no answer (weak mobile data): try once more
+    data = await MaisonApi.me();
   }
+  if (data.account?.type !== 'admin') {
+    const err = new Error('Please sign in again.');
+    err.status = 401;
+    throw err;
+  }
+  try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) {}
 }
 
 /* ---------- Generic form fields (settings + storefront) ---------- */
@@ -773,4 +783,7 @@ $('#csvBtn').addEventListener('click', () => {
 });
 
 renderSettings(); setSettingsState('info', 'Loading settings...'); renderSite(); refresh(); applyLogo(); route();
-ensureAdminSession().then(() => Promise.all([loadSettings(), loadAdminProducts(), loadOrders(), loadCustomers()])).catch(backToLogin);
+ensureAdminSession().then(() => Promise.all([loadSettings(), loadAdminProducts(), loadOrders(), loadCustomers()])).catch(error => {
+  if (error && error.status === 401) return backToLogin();
+  toast((error && error.message) || 'Could not reach the server. Refresh to try again.');
+});

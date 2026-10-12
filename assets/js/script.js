@@ -86,6 +86,10 @@ async function loadCurrentAccount() {
       if (data.account?.type === 'customer') {
         window.MaisonAccount.current = data.account;
         sessionStorage.setItem('maison_customer', JSON.stringify(data.account.customer || {}));
+      } else {
+        // The server session is gone: do not keep showing (or checking out as) a customer that is no longer signed in.
+        window.MaisonAccount.current = null;
+        sessionStorage.removeItem('maison_customer');
       }
     } catch (error) {}
   }

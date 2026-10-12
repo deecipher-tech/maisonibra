@@ -86,11 +86,28 @@
       showToast(on ? 'Saved to your wishlist.' : 'Removed from your wishlist.');
     });
 
-    const score = x => (x.subtype && x.subtype === p.subtype ? 2 : 0) + (x.type === p.type ? 1 : 0);
-    const rel = PRODUCTS.filter(x => x.id !== p.id).sort((a, b) => score(b) - score(a)).slice(0, 4);
-    $('#relatedGrid').innerHTML = rel.map(x => card(view(x))).join('');
-    $('#related').hidden = rel.length === 0;
-    dropBroken($('#relatedGrid'));
+    loadRelated(p);
+  }
+
+  /* "You may also like": fetched on its own so it never depends on what else happened to be loaded into PRODUCTS.
+     Order of preference: same sub-category, then same top-level category, then anything in the store. */
+  async function loadRelated(p) {
+    const section = $('#related'), grid = $('#relatedGrid');
+    const picked = [], seen = new Set([p.id]);
+    const take = data => (data.products || []).map(apiProductToCard).forEach(x => {
+      if (picked.length < 4 && !seen.has(x.id)) { seen.add(x.id); picked.push(x); }
+    });
+    try {
+      if (p.subtype) take(await MaisonApi.getProducts({ category: p.subtype, page: 1, per_page: 8 }));
+      if (picked.length < 4) take(await MaisonApi.getProducts({ category: p.type, page: 1, per_page: 12 }));
+      if (picked.length < 4) take(await MaisonApi.getProducts({ page: 1, per_page: 12 }));
+    } catch (error) {
+      console.warn(error.message || error);
+    }
+    if (!picked.length) { section.hidden = true; return; }
+    grid.innerHTML = picked.map(x => card(view(x))).join('');
+    section.hidden = false;
+    grid.querySelectorAll('.ph img').forEach(img => { const d = () => img.remove(); img.addEventListener('error', d); if (img.complete && !img.naturalWidth) d(); });
     observeReveals();
   }
 })();
