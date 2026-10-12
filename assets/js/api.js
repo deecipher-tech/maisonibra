@@ -380,6 +380,8 @@
    *
    * Existing method names are preserved.
    */
+  let storeRequest = null; // public/store is requested once per page and shared by script.js and storefront.js
+
   window.MaisonApi = Object.freeze({
     baseUrl: API_BASE,
 
@@ -389,7 +391,7 @@
 
     // Public storefront
     getStore: () =>
-      request(`public/store?${withDomain()}`),
+      storeRequest || (storeRequest = request(`public/store?${withDomain()}`).catch(error => { storeRequest = null; throw error; })),
 
     getProducts: (params = {}) =>
       request(`public/products?${withDomain(params)}`),
@@ -525,6 +527,22 @@
         body
       });
     },
+
+    // Admin storefront content (Home / About / Contact, menu, footer). payload: { storefront: {...} } - the whole content.
+    getStorefront: () =>
+      request('admin/storefront'),
+
+    updateStorefront: payload =>
+      request('admin/storefront', {
+        method: 'POST',
+        body: { ...payload, _method: 'PUT' }
+      }),
+
+    resetStorefront: () =>
+      request('admin/storefront', {
+        method: 'POST',
+        body: { _method: 'DELETE' }
+      }),
 
     changePassword: (current_password, new_password) =>
       request('admin/password', {

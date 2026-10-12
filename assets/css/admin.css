@@ -944,3 +944,17 @@ td select:disabled { opacity: .55; }
 .cu-facts dd { margin: 4px 0 0; font-weight: 500; overflow-wrap: anywhere; }
 .cu-h { margin: 6px 0 0; font: 600 22px var(--serif); }
 .cu-orders { min-width: 480px; }
+/* ---------- Storefront editor (Home / About / Contact tabs) ---------- */
+.savebar .hint { margin: 0 auto 0 0; align-self: center; }
+.sf-fields { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); align-items: start; }
+.sf-fields > .field { margin: 0; min-width: 0; }
+.sf-wide { grid-column: 1 / -1; }
+.sf-list { display: grid; gap: 10px; }
+.sf-list-title { margin: 0; font-size: 13px; font-weight: 600; }
+.sf-item { display: grid; gap: 12px; padding: 12px; border: 1px solid var(--hair); border-radius: 8px; background: #fbfaf7; }
+.sf-item .sf-item { background: #fff; }
+.sf-item-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sf-item-head strong { overflow-wrap: anywhere; }
+.sf-list > .btn { justify-self: start; }
+.sf-panel[hidden] { display: none; }
+.field textarea { resize: vertical; }

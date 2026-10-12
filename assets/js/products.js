@@ -95,4 +95,4 @@ function renderPager(el, pg, onPick) {
 }
 
 /* Shop and category pages request one page at a time from the API (data-paginated); other pages still load the full list. */
-if (!document.querySelector('[data-paginated], #productRoot')) loadProductsFromApi();
+if (!document.querySelector('[data-paginated], #productRoot, #signatureGrid')) loadProductsFromApi();

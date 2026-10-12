@@ -1,17 +1,9 @@
 /* ---------- Placeholder content: replace with real data / CMS ---------- */
-const SIGNATURE = [1, 2, 3, 4].map(n => ({ name: `[PRODUCT NAME ${n}]`, category: '[FRAGRANCE CATEGORY]', desc: '[PRODUCT DESCRIPTION]', price: '[PRICE]', image: '' }));
-const BEAUTY = [
-  { name: '[PRODUCT NAME]', category: 'Skincare', desc: '[PRODUCT DESCRIPTION]', price: '[PRICE]', image: '' },
-  { name: '[PRODUCT NAME]', category: 'Skincare', desc: '[PRODUCT DESCRIPTION]', price: '[PRICE]', image: '' },
-  { name: '[PRODUCT NAME]', category: 'Makeup', desc: '[PRODUCT DESCRIPTION]', price: '[PRICE]', image: '' },
-  { name: '[PRODUCT NAME]', category: 'Makeup', desc: '[PRODUCT DESCRIPTION]', price: '[PRICE]', image: '' }
-];
 const CATEGORIES = [
   { title: 'Perfume', line: 'Discover your signature scent.', href: 'category1.html', image: './assets/images/perfume-ca.png' },
   { title: 'Skincare', line: 'Rituals for radiant skin.', href: 'category2.html', image: './assets/images/skincare -ca.png' },
   { title: 'Makeup', line: 'Beauty with intention.', href: 'category3.html', image: './assets/images/makeup-ca.png' }
 ];
-const JOURNAL = ['Fragrance', 'Skincare', 'Lifestyle'].map(c => ({ category: c, title: '[ARTICLE TITLE]', date: '[DATE]' }));
 
 /* ---------- Helpers ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -34,8 +26,6 @@ async function loadStoreBranding() {
     if (store.name) {
       document.title = document.title.replace(/MAISON IBRA/g, store.name);
       document.querySelectorAll('.logo-text').forEach(el => el.textContent = store.name);
-      const copy = $('.copy');
-      if (copy) copy.textContent = `© ${new Date().getFullYear()} ${store.name}. All Rights Reserved.`;
     }
     if (store.logo_url) {
       document.querySelectorAll('.logo img').forEach(img => { img.src = store.logo_url; });
@@ -49,14 +39,7 @@ async function loadStoreBranding() {
       }
       icon.href = store.favicon_url;
     }
-    if (settings.announce) {
-      document.querySelectorAll('.announce').forEach(el => { el.textContent = settings.announce; });
-    }
-    // Footer links: use the social URLs saved in Admin > Settings > Social.
-    document.querySelectorAll('.footer a[data-soon]').forEach(a => {
-      const url = (settings.social || {})[a.textContent.trim().toLowerCase()];
-      if (url) { a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.removeAttribute('data-soon'); }
-    });
+    // The announcement bar, menu, footer and copyright line come from the storefront content: see storefront.js.
     // "Platform is live" switched off: show a back-soon page to visitors, but not to a signed-in admin.
     if (settings.maintenance) {
       let admin = false;
@@ -115,19 +98,8 @@ const card = p => `<article class="card reveal"><div class="media">${link(p, med
   ${p.status === 'out_of_stock' || p.stock === 0 ? '<button class="card-add" type="button" disabled>Out of stock</button>' : `<button class="card-add" data-add="${esc(p.name)}" data-id="${p.apiId || ''}">Add to bag</button>`}</div>
   <div class="card-info"><p class="card-cat">${esc(p.category)}</p><h3>${link(p, esc(p.name))}</h3><p class="card-desc">${esc(p.desc)}</p><p class="price">${esc(p.price)}</p></div></article>`;
 const fill = (sel, items, fn) => { const el = $(sel); if (el) el.innerHTML = items.map(fn).join(''); };
-fill('#signatureGrid', SIGNATURE, card);
-fill('#beautyGrid', BEAUTY, card);
-function renderApiHomeProducts() {
-  if (typeof PRODUCTS === 'undefined') return;
-  const active = PRODUCTS.filter(p => p.name && !p.name.startsWith('['));
-  fill('#signatureGrid', active.filter(p => p.type === 'perfume').slice(0, 4).map(view), card);
-  fill('#beautyGrid', active.filter(p => p.type !== 'perfume').slice(0, 4).map(view), card);
-  observeReveals();
-}
-document.addEventListener('maison:products', renderApiHomeProducts);
 fill('#catGrid', CATEGORIES, c => `<a class="cat" href="${c.href}" aria-label="Explore ${c.title}"><div class="ph"><span>[CATEGORY IMAGE]</span>${c.image ? `<img src="${esc(c.image)}" alt="${esc(c.title)} collection" loading="lazy" decoding="async">` : ''}</div><div><h3>${c.title}</h3><p>${c.line}</p><span class="link-light">Explore</span></div></a>`);
 document.querySelectorAll('#catGrid img').forEach(img => { const drop = () => img.remove(); img.addEventListener('error', drop); if (img.complete && !img.naturalWidth) drop(); });
-fill('#journalGrid', JOURNAL, j => `<article class="post reveal"><div class="ph" role="img" aria-label="[EDITORIAL IMAGE] ${j.category}"><span>[EDITORIAL IMAGE]</span></div><p class="post-meta">${j.category} &nbsp;|&nbsp; ${j.date}</p><h3>${j.title}</h3><a class="read" href="#top" data-soon="Journal articles are coming soon.">Read article</a></article>`);
 
 /* ---------- Shopping bag: persistent cart, right-hand drawer and checkout ----------
    The saved bag is only [{ id, qty }] in localStorage, so it survives page changes and new tabs. Prices, names, stock and
@@ -532,7 +504,7 @@ $('#newsForm')?.addEventListener('submit', e => {
   }
   input.removeAttribute('aria-invalid');
   // TODO: POST input.value to your newsletter provider here.
-  msg.textContent = 'Thank you. You are on the list.';
+  msg.textContent = (window.MaisonStorefront && window.MaisonStorefront.global && window.MaisonStorefront.global.newsletter && window.MaisonStorefront.global.newsletter.success) || 'Thank you. You are on the list.';
   input.value = '';
 });
 

@@ -1,5 +1,5 @@
 /* Admin dashboard. Products, categories, settings and the password are saved through the API (MaisonApi).
-   The storefront editor, orders and customers still use this browser's localStorage (ibra_* keys). */
+   The storefront (Home / About / Contact, menu, footer), orders and customers are loaded from and saved to the API too. */
 /* The server session (cookie) decides who is signed in: see ensureAdminSession(). sessionStorage is per tab and phones
    discard or restore tabs freely, so it must not be used as the gate. */
 
@@ -16,7 +16,7 @@ const store = {
 const getp = (o, p) => p.split('.').reduce((a, k) => a?.[k], o);
 const setp = (o, p, v) => { const ks = p.split('.'); let t = o; ks.slice(0, -1).forEach(k => t = t[k] ??= {}); t[ks[ks.length - 1]] = v; };
 
-let settings = {}, site = store.get('ibra_site', {}); // settings come from the API (loadSettings)
+let settings = {}; // settings come from the API (loadSettings)
 const adminAsset = v => /^\.\//.test(v || '') ? '.' + v : (v || ''); // './assets/x.png' -> '../assets/x.png' (admin lives in /admin)
 const cur = () => settings.general?.currency || '₦';
 const fmt = n => n == null || n === '' ? '—' : cur() + Number(n).toLocaleString('en-NG');
@@ -37,6 +37,7 @@ function route() {
   if (v === 'account') renderAccount();
   if (v === 'categories') renderCategories();
   if (v === 'customers') loadCustomers();
+  if (v === 'storefront') showStorefront();
   setSide(false);
 }
 burger.addEventListener('click', () => setSide(!side.classList.contains('open')));
@@ -102,7 +103,7 @@ function bindImages(root, upload) {
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { input.value = ''; return toast('Use a JPEG, PNG or WebP image.'); }
       if (file.size > 2 * 1024 * 1024) { input.value = ''; return toast('Image must be 2MB or smaller.'); }
       const btn = row.querySelector('[data-upload]'); btn.disabled = true; btn.textContent = 'Uploading...';
-      try { const res = await upload(file); text.value = res.url; img.src = res.url; img.hidden = false; toast('Image uploaded. Click Save changes to apply it.'); }
+      try { const res = await upload(file); text.value = res.url; img.src = res.url; img.hidden = false; text.dispatchEvent(new Event('input', { bubbles: true })); toast('Image uploaded. Click Save changes to apply it.'); }
       catch (error) { toast(error.message || 'Upload failed.'); }
       finally { btn.disabled = false; btn.textContent = 'Upload'; input.value = ''; }
       return;
@@ -271,24 +272,251 @@ $('#settingsPanels').addEventListener('click', e => {
 });
 bindImages($('#settingsPanels'), file => MaisonApi.uploadSettingsImage(file));
 
-/* ---------- Storefront editor ---------- */
-const GROUPS = [
-  ['Announcement bar', [T('announce', 'Text', { d: 'Complimentary delivery on orders above ₦150,000' })]],
-  ['Hero', [T('hero.title', 'Headline', { d: 'The Art of' }), T('hero.gold', 'Gold highlighted word', { d: 'Presence.' }), T('hero.text', 'Intro text', { type: 'textarea', d: 'A refined collection of fragrances and beauty essentials created for those who leave an impression.' }), T('hero.cta1', 'Main button text', { d: 'Explore the collection' }), T('hero.cta2', 'Link text', { d: 'Discover MAISON IBRA' }), T('hero.img1', 'Image 1 (perfume)', { type: 'image' }), T('hero.img2', 'Image 2 (skincare)', { type: 'image' }), T('hero.img3', 'Image 3 (makeup)', { type: 'image' })]],
-  ['Signature collection', [T('collection.title', 'Title', { d: 'The Signature Collection' }), T('collection.sub', 'Subtitle', { d: 'A curated expression of character, confidence and individuality.' }), T('collection.max', 'Maximum products shown', { type: 'number', d: 4 })]],
-  ['Categories', [1, 2, 3].flatMap((n, i) => [T(`cat${n}.title`, `Category ${n} title`, { d: ['Perfume', 'Skincare', 'Makeup'][i] }), T(`cat${n}.line`, `Category ${n} line`, { d: ['Discover your signature scent.', 'Rituals for radiant skin.', 'Beauty with intention.'][i] }), T(`cat${n}.img`, `Category ${n} image`, { type: 'image' })])],
-  ['Brand statement', [T('statement.line1', 'Line 1', { d: 'Beauty is not simply seen.' }), T('statement.line2', 'Line 2', { d: 'It is' }), T('statement.gold', 'Gold highlighted word', { d: 'remembered.' }), T('statement.text', 'Paragraph', { type: 'textarea' })]],
-  ['Skincare & makeup', [T('beauty.title', 'Title', { d: 'Skincare & Makeup' }), T('beauty.sub', 'Subtitle', { d: 'Beauty rituals designed with the same quiet confidence.' }), T('beauty.max', 'Maximum products shown', { type: 'number', d: 4 })]],
-  ['Story', [T('story.title', 'Title', { d: 'The MAISON IBRA Story' }), T('story.text', 'Text', { type: 'textarea' }), T('story.img', 'Image', { type: 'image' })]],
-  ['Journal', [T('journal.title', 'Title', { d: 'The Journal' }), T('journal.max', 'Maximum articles shown', { type: 'number', d: 3 })]],
-  ['Newsletter', [T('news.title', 'Title', { d: 'Enter the world of MAISON IBRA' }), T('news.text', 'Text', { type: 'textarea', d: 'Be the first to discover new fragrances, beauty rituals and exclusive releases.' })]]
-];
-function renderSite() {
-  $('#siteGroups').innerHTML = GROUPS.map(([t, fs], i) => `<details class="grp" ${i === 0 ? 'open' : ''}><summary>${esc(t)}</summary><div class="pform">${fs.map(f => fieldHTML(f, site)).join('')}</div></details>`).join('');
+/* ---------- Storefront editor (Home / About / Contact tabs; saved to the database through the API) ---------- */
+function sfSchema() {
+  const txt = (k, label, o = {}) => ({ k, label, type: 'text', ...o });
+  const area = (k, label, o = {}) => ({ k, label, type: 'textarea', ...o });
+  const url = (k, label, o = {}) => ({ k, label, type: 'url', ...o });
+  const img = (k, label, o = {}) => ({ k, label, type: 'image', ...o });
+  const tog = (k, label, o = {}) => ({ k, label, type: 'toggle', ...o });
+  const num = (k, label, o = {}) => ({ k, label, type: 'number', ...o });
+  const cat = (k, label, o = {}) => ({ k, label, type: 'category', ...o });
+  const lst = (k, label, item, o = {}) => ({ k, label, type: 'list', item, ...o });
+  const sec = (title, root, fields, hint = '') => ({ title, root, fields, hint });
+  const seo = (root) => sec('Page title & search description', root + '.seo', [txt('title', 'Browser / search title', { hint: 'Leave empty to keep the default title.' }), area('description', 'Search description')]);
+  const show = tog('visible', 'Show this section');
+  const GOLD = 'Gold highlighted word';
+
+  return {
+    home: [
+      sec('Announcement bar', 'global', [txt('announce', 'Text', { hint: 'Shown above the header on every page. Leave empty to hide the bar.' })], 'The announcement bar, menu, newsletter and footer appear on every page of the store and are edited here.'),
+      sec('Header menu', 'global', [lst('nav', 'Menu links', [txt('label', 'Label'), url('url', 'Link')], { max: 8, single: 'Link', itemTitle: 'label', hint: 'Also used by the mobile menu.' })]),
+      sec('Hero', 'home.hero', [
+        txt('title', 'Headline'), txt('gold', GOLD), area('text', 'Intro text'),
+        txt('cta1_text', 'Main button text'), url('cta1_url', 'Main button link'),
+        txt('cta2_text', 'Second link text'), url('cta2_url', 'Second link'),
+        lst('tiles', 'Hero images (up to 3)', [img('image', 'Image'), txt('alt', 'Image description'), txt('label', 'Caption (optional)'), url('url', 'Link')], { max: 3, single: 'Image', itemTitle: 'alt' })
+      ]),
+      sec('Signature collection', 'home.collection', [show, txt('title', 'Title'), area('subtitle', 'Subtitle'), cat('category', 'Show products from', { hint: 'A category or sub-category slug, e.g. perfume. Separate several with commas.' }), num('max', 'Number of products')]),
+      sec('Shop by category', 'home.categories', [show, lst('items', 'Category tiles', [txt('title', 'Title'), txt('line', 'Short line'), txt('link_text', 'Link text'), url('url', 'Link'), img('image', 'Image')], { max: 6, single: 'Tile', itemTitle: 'title' })]),
+      sec('Brand statement', 'home.statement', [show, txt('line1', 'Line 1'), txt('line2', 'Line 2'), txt('gold', GOLD), area('text', 'Paragraph (optional)')]),
+      sec('Signature scent', 'home.feature', [
+        show, txt('label', 'Small label'), txt('title', 'Product name', { hint: 'The section stays hidden on the store until it has a name.' }), area('text', 'Story'),
+        lst('notes', 'Notes', [txt('label', 'Label'), txt('value', 'Value')], { max: 8, single: 'Note', itemTitle: 'label' }),
+        txt('price', 'Price text'), txt('button_text', 'Button text'), url('button_url', 'Button link'), img('image', 'Image')
+      ]),
+      sec('Skincare & makeup', 'home.beauty', [show, txt('title', 'Title'), area('subtitle', 'Subtitle'), cat('category', 'Show products from', { hint: 'Several categories are mixed, e.g. skincare,makeup.' }), num('max', 'Number of products')]),
+      sec('Story', 'home.story', [show, txt('title', 'Title'), area('text', 'Text', { hint: 'The section stays hidden on the store until it has text or an image.' }), txt('button_text', 'Button text'), url('button_url', 'Button link'), img('image', 'Image')]),
+      sec('Journal', 'home.journal', [show, txt('title', 'Title'), lst('posts', 'Articles', [txt('category', 'Category'), txt('title', 'Title'), txt('date', 'Date'), txt('link_text', 'Link text'), url('url', 'Link'), img('image', 'Image')], { max: 12, single: 'Article', itemTitle: 'title', hint: 'The section is hidden on the store while there are no articles.' })]),
+      sec('Newsletter (all pages)', 'global.newsletter', [show, txt('title', 'Title'), area('text', 'Text'), txt('placeholder', 'Email field placeholder'), txt('button', 'Button text'), txt('success', 'Thank-you message'), area('note', 'Small print')]),
+      sec('Footer (all pages)', 'global.footer', [
+        txt('copyright', 'Copyright line', { hint: 'Use {year} and {name} to insert the year and the store name.' }),
+        lst('columns', 'Footer columns', [txt('title', 'Column title'), lst('links', 'Links', [txt('label', 'Label'), url('url', 'Link')], { max: 12, single: 'Link', itemTitle: 'label' })], { max: 6, single: 'Column', itemTitle: 'title' })
+      ], 'A link without an address shows "coming soon". Instagram, TikTok, Facebook and X links without an address use the links saved in Settings > Social.'),
+      seo('home')
+    ],
+    about: [
+      sec('Philosophy', 'about.philosophy', [show, txt('label', 'Small label'), txt('title', 'Headline', { hint: 'The section stays hidden on the store until it has a headline or text.' }), area('text', 'Text', { hint: 'Leave a blank line between paragraphs.' }), img('image', 'Image')]),
+      sec('Values', 'about.values', [show, txt('title', 'Title'), txt('gold', GOLD), area('intro', 'Intro line'), lst('items', 'Values', [txt('title', 'Title'), area('text', 'Description')], { max: 6, single: 'Value', itemTitle: 'title' })]),
+      sec('The Maison (craft)', 'about.craft', [show, txt('label', 'Small label'), txt('title', 'Headline', { hint: 'The section stays hidden on the store until it has a headline or text.' }), area('text', 'Text', { hint: 'Leave a blank line between paragraphs.' }), txt('button_text', 'Button text'), url('button_url', 'Button link'), img('image', 'Image')]),
+      sec('Call to action', 'about.cta', [show, txt('title', 'Title'), txt('gold', GOLD), area('text', 'Text'), txt('button_text', 'Button text'), url('button_url', 'Button link'), txt('link_text', 'Second link text'), url('link_url', 'Second link')]),
+      seo('about')
+    ],
+    contact: [
+      sec('Contact details', 'contact.info', [txt('title', 'Heading'), txt('email_label', 'Email label'), txt('phone_label', 'Phone label'), txt('address_label', 'Address label'), txt('hours_label', 'Hours label'), txt('follow_label', 'Follow label')], 'The email, phone, address, opening hours and social links themselves are edited in Settings (Contact and Social tabs).'),
+      sec('Contact form', 'contact.form', [txt('button', 'Button text'), area('note', 'Small print'), lst('topics', 'Topic choices', [txt('label', 'Topic')], { max: 10, single: 'Topic', itemTitle: 'label' })]),
+      sec('Frequently asked questions', 'contact.faq', [show, txt('title', 'Title'), lst('items', 'Questions', [txt('q', 'Question'), area('a', 'Answer')], { max: 20, single: 'Question', itemTitle: 'q', hint: 'Questions without an answer are not shown on the store.' })]),
+      seo('contact')
+    ]
+  };
 }
-bindImages($('#siteForm'));
-$('#siteForm').addEventListener('submit', e => { e.preventDefault(); collect($('#siteForm'), site); if (store.set('ibra_site', site)) toast('Storefront saved. Refresh the home page to see it.'); });
-$('#siteReset').addEventListener('click', () => { if (!confirm('Reset all storefront edits to the defaults?')) return; site = {}; localStorage.removeItem('ibra_site'); renderSite(); toast('Storefront reset.'); });
+
+const SF_TABS = [['home', 'Home'], ['about', 'About'], ['contact', 'Contact']];
+const SF_SCHEMA = sfSchema();
+const sfListDefs = {};
+Object.values(SF_SCHEMA).forEach(list => list.forEach(s => {
+  const reg = (fields, base) => fields.forEach(f => { if (f.type !== 'list') return; const p = base + '.' + f.k; sfListDefs[p] = f; reg(f.item, p); });
+  reg(s.fields, s.root);
+}));
+
+let sf = null, sfDefaults = null, sfTab = 'home', sfDirty = false, sfLoading = false;
+const sfOpen = new Set(['Announcement bar', 'Philosophy', 'Contact details']);
+
+const sfBlank = fields => Object.fromEntries(fields.map(f => [f.k, f.type === 'list' ? [] : f.type === 'toggle' ? true : '']));
+const sfId = path => 'sf_' + path.replace(/\./g, '_');
+
+function sfFieldHTML(f, base) {
+  const path = base + '.' + f.k, v = getp(sf, path), id = sfId(path);
+  const hint = f.hint ? `<p class="hint">${esc(f.hint)}</p>` : '';
+  if (f.type === 'list') return `<div class="field sf-wide">${sfListHTML(f, path)}${hint}</div>`;
+  if (f.type === 'toggle') return `<div class="field"><label class="switch"><input type="checkbox" id="${id}" data-sf="${path}" ${v ? 'checked' : ''}><span class="knob"></span><span>${esc(f.label)}</span></label>${hint}</div>`;
+  if (f.type === 'image') return `<div class="field sf-wide"><label for="${id}">${esc(f.label)}</label><div class="img-row"><img src="${esc(adminAsset(v))}" alt="" ${v ? '' : 'hidden'}><input type="text" id="${id}" data-sf="${path}" value="${esc(v)}" placeholder="Upload, or paste a path or URL"><button type="button" class="btn btn-ghost" data-upload>Upload</button><input type="file" accept="image/jpeg,image/png,image/webp" hidden></div>${hint}</div>`;
+  if (f.type === 'textarea') return `<div class="field sf-wide"><label for="${id}">${esc(f.label)}</label><textarea id="${id}" data-sf="${path}" rows="3">${esc(v)}</textarea>${hint}</div>`;
+  const attrs = f.type === 'number' ? 'type="number" min="1" max="24"' : f.type === 'category' ? 'type="text" list="sfCats" autocomplete="off"' : f.type === 'url' ? 'type="text" placeholder="shop.html, #story or https://..."' : 'type="text"';
+  return `<div class="field"><label for="${id}">${esc(f.label)}</label><input id="${id}" data-sf="${path}" ${attrs} value="${esc(v)}">${hint}</div>`;
+}
+
+function sfListHTML(f, path) {
+  const arr = getp(sf, path) || [], max = f.max || 24, one = f.single || 'Item';
+  const items = arr.map((it, i) => {
+    const p = `${path}.${i}`, title = (f.itemTitle && it[f.itemTitle]) || `${one} ${i + 1}`;
+    return `<div class="sf-item" data-sf-item="${p}"><div class="sf-item-head"><strong>${esc(title)}</strong><div class="row-btns">`
+      + `<button type="button" class="act" data-sf-up="${p}" title="Move up" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>&uarr;</button>`
+      + `<button type="button" class="act" data-sf-down="${p}" title="Move down" aria-label="Move down" ${i === arr.length - 1 ? 'disabled' : ''}>&darr;</button>`
+      + `<button type="button" class="act danger" data-sf-del="${p}" title="Delete" aria-label="Delete ${esc(title)}">${ICON.trash}</button>`
+      + `</div></div><div class="sf-fields">${f.item.map(sub => sfFieldHTML(sub, p)).join('')}</div></div>`;
+  }).join('');
+  return `<div class="sf-list" data-sf-list="${path}"><p class="sf-list-title">${esc(f.label)} <span class="hint">(${arr.length} of ${max})</span></p>${items || '<p class="hint">Nothing here yet.</p>'}<button type="button" class="btn btn-ghost" data-sf-add="${path}" ${arr.length >= max ? 'disabled' : ''}>Add ${esc(one.toLowerCase())}</button></div>`;
+}
+
+function sfSectionHTML(s) {
+  return `<details class="grp" data-grp="${esc(s.title)}" ${sfOpen.has(s.title) ? 'open' : ''}><summary>${esc(s.title)}</summary><div class="pform">${s.hint ? `<p class="hint">${esc(s.hint)}</p>` : ''}<div class="sf-fields">${s.fields.map(f => sfFieldHTML(f, s.root)).join('')}</div></div></details>`;
+}
+
+function sfRenderPanels() {
+  $('#sfPanels').innerHTML = SF_TABS.map(([k]) => `<div class="sf-panel" role="tabpanel" id="sfpanel-${k}" aria-labelledby="sftab-${k}" ${k === sfTab ? '' : 'hidden'}>${SF_SCHEMA[k].map(sfSectionHTML).join('')}</div>`).join('');
+  $('#sfCats').innerHTML = categories.map(c => `<option value="${esc(c.slug)}">${esc(c.name)}</option>`).join('');
+  sfPaintDirty();
+}
+
+function sfShowTab(k) {
+  sfTab = k;
+  $$('#sfTabs [role=tab]').forEach(t => { const on = t.dataset.sftab === k; t.setAttribute('aria-selected', on); t.tabIndex = on ? 0 : -1; });
+  $$('#sfPanels [role=tabpanel]').forEach(p => p.hidden = p.id !== 'sfpanel-' + k);
+}
+
+function sfPaintDirty() {
+  const d = $('#sfDirty'); if (d) d.textContent = sfDirty ? 'Unsaved changes' : '';
+  const b = $('#sfSave'); if (b) b.disabled = !sf;
+  const r = $('#sfReset'); if (r) r.disabled = !sf;
+}
+
+function sfShowErrors(errors, fallback = '') {
+  $$('#sfPanels [aria-invalid]').forEach(x => x.removeAttribute('aria-invalid'));
+  const keys = Object.keys(errors || {});
+  keys.forEach(k => $(`#sfPanels [data-sf="${k}"]`)?.setAttribute('aria-invalid', 'true'));
+  $('#sfErr').textContent = keys.length ? errors[keys[0]] + (keys.length > 1 ? ` (and ${keys.length - 1} more)` : '') : fallback;
+  const first = keys.map(k => $(`#sfPanels [data-sf="${k}"]`)).find(Boolean);
+  if (first) {
+    const panel = first.closest('[role=tabpanel]'); if (panel) sfShowTab(panel.id.replace('sfpanel-', ''));
+    const grp = first.closest('details.grp'); if (grp) { grp.open = true; sfOpen.add(grp.dataset.grp); }
+    first.focus(); first.scrollIntoView({ block: 'center' });
+  }
+}
+
+function sfSetState(msg, retry = false, error = false) {
+  const box = $('#sfState'); if (!box) return;
+  box.hidden = !msg; box.classList.toggle('error', error);
+  $('#sfStateText').textContent = msg || '';
+  $('#sfRetry').hidden = !retry;
+}
+
+async function sfLoad() {
+  if (sfLoading || !window.MaisonApi) return;
+  sfLoading = true; sfSetState('Loading storefront...');
+  try {
+    const data = await MaisonApi.getStorefront();
+    sf = data.storefront; sfDefaults = data.defaults; sfDirty = false;
+    sfRenderPanels(); sfSetState('');
+  } catch (error) {
+    if (error.status === 401) return backToLogin();
+    sf = null; sfPaintDirty();
+    sfSetState((error.message || 'Could not load the storefront.') + ' Saving is disabled until it loads.', true, true);
+  } finally { sfLoading = false; }
+}
+
+async function sfSave() {
+  if (!sf) return;
+  const btn = $('#sfSave');
+  sfShowErrors({}); setBusy(btn, true, 'Saving...');
+  try {
+    const res = await MaisonApi.updateStorefront({ storefront: sf });
+    sf = res.storefront; sfDefaults = res.defaults || sfDefaults; sfDirty = false;
+    sfRenderPanels(); toast('Storefront saved.');
+  } catch (error) {
+    if (error.status === 401) return backToLogin();
+    sfShowErrors(error.details || {}, error.message || 'Could not save the storefront.');
+    toast('The storefront was not saved.');
+  } finally { setBusy(btn, false); sfPaintDirty(); }
+}
+
+async function sfResetAll() {
+  if (!sf || !confirm('Reset the whole storefront (Home, About, Contact, menu and footer) to the defaults? Uploaded storefront images are removed.')) return;
+  const btn = $('#sfReset');
+  setBusy(btn, true, 'Resetting...');
+  try {
+    const res = await MaisonApi.resetStorefront();
+    sf = res.storefront; sfDefaults = res.defaults || sfDefaults; sfDirty = false;
+    sfShowErrors({}); sfRenderPanels(); toast('Storefront reset to the defaults.');
+  } catch (error) {
+    if (error.status === 401) return backToLogin();
+    toast(error.message || 'Could not reset the storefront.');
+  } finally { setBusy(btn, false); sfPaintDirty(); }
+}
+
+function sfRerenderList(path) {
+  const f = sfListDefs[path.replace(/\.\d+/g, '')], wrap = $(`#sfPanels [data-sf-list="${path}"]`);
+  if (f && wrap) wrap.outerHTML = sfListHTML(f, path);
+}
+
+function sfBind() {
+  const root = $('#sfPanels');
+  const sync = e => {
+    const t = e.target, path = t.dataset && t.dataset.sf;
+    if (!path || !sf) return;
+    setp(sf, path, t.type === 'checkbox' ? t.checked : t.type === 'number' ? (t.value === '' ? '' : Number(t.value)) : t.value);
+    sfDirty = true; sfPaintDirty(); t.removeAttribute('aria-invalid');
+  };
+  root.addEventListener('input', sync);
+  root.addEventListener('change', sync);
+  root.addEventListener('click', e => {
+    if (!sf) return;
+    const add = e.target.closest('[data-sf-add]'), del = e.target.closest('[data-sf-del]'), up = e.target.closest('[data-sf-up]'), down = e.target.closest('[data-sf-down]');
+    const split = p => [p.replace(/\.\d+$/, ''), +p.split('.').pop()];
+    if (add) {
+      const path = add.dataset.sfAdd, f = sfListDefs[path.replace(/\.\d+/g, '')];
+      if (!f) return;
+      let arr = getp(sf, path); if (!Array.isArray(arr)) { setp(sf, path, []); arr = getp(sf, path); }
+      if (arr.length >= (f.max || 24)) return;
+      arr.push(sfBlank(f.item)); sfDirty = true; sfRerenderList(path); sfPaintDirty();
+      $(`#sfPanels [data-sf-item="${path}.${arr.length - 1}"] input:not([type=file]), #sfPanels [data-sf-item="${path}.${arr.length - 1}"] textarea`)?.focus();
+    } else if (del) {
+      const [lp, i] = split(del.dataset.sfDel), arr = getp(sf, lp);
+      if (!Array.isArray(arr)) return;
+      arr.splice(i, 1); sfDirty = true; sfRerenderList(lp); sfPaintDirty();
+    } else if (up || down) {
+      const [lp, i] = split((up || down).dataset[up ? 'sfUp' : 'sfDown']), arr = getp(sf, lp), j = up ? i - 1 : i + 1;
+      if (!Array.isArray(arr) || j < 0 || j >= arr.length) return;
+      [arr[i], arr[j]] = [arr[j], arr[i]]; sfDirty = true; sfRerenderList(lp); sfPaintDirty();
+    }
+  });
+  root.addEventListener('toggle', e => { const d = e.target; if (d.matches && d.matches('details.grp')) d.open ? sfOpen.add(d.dataset.grp) : sfOpen.delete(d.dataset.grp); }, true);
+  bindImages(root, file => MaisonApi.uploadSettingsImage(file));
+}
+
+function showStorefront() {
+  const view = $('[data-view="storefront"]');
+  if (!view) return;
+  if (!$('#sfPanels')) {
+    view.innerHTML = `<div class="settings-state" id="sfState" hidden><span id="sfStateText"></span><button type="button" class="btn btn-ghost" id="sfRetry" hidden>Try again</button></div>
+      <div class="savebar"><span class="hint" id="sfDirty" role="status"></span><a class="btn btn-ghost" href="../index.html" target="_blank" rel="noopener">View store</a><button type="button" class="btn btn-ghost" id="sfReset" disabled>Reset to defaults</button><button type="button" class="btn" id="sfSave" disabled>Save changes</button></div>
+      <p class="err" id="sfErr" role="alert"></p>
+      <div class="tabs" role="tablist" id="sfTabs" aria-label="Storefront pages">${SF_TABS.map(([k, l]) => `<button type="button" role="tab" id="sftab-${k}" aria-controls="sfpanel-${k}" aria-selected="${k === sfTab}" tabindex="${k === sfTab ? 0 : -1}" data-sftab="${k}">${l}</button>`).join('')}</div>
+      <div id="sfPanels"></div><datalist id="sfCats"></datalist>`;
+    $('#sfTabs').addEventListener('click', e => { const t = e.target.closest('[data-sftab]'); if (t) sfShowTab(t.dataset.sftab); });
+    $('#sfTabs').addEventListener('keydown', e => {
+      const tabs = $$('#sfTabs [role=tab]'), i = tabs.indexOf(document.activeElement);
+      if (i < 0 || !['ArrowRight', 'ArrowLeft'].includes(e.key)) return;
+      const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]; n.focus(); sfShowTab(n.dataset.sftab);
+    });
+    $('#sfSave').addEventListener('click', sfSave);
+    $('#sfReset').addEventListener('click', sfResetAll);
+    $('#sfRetry').addEventListener('click', sfLoad);
+    sfBind();
+  }
+  if (!sf) sfLoad();
+}
+addEventListener('beforeunload', e => { if (sfDirty) { e.preventDefault(); e.returnValue = ''; } });
 
 /* ---------- Products ---------- */
 const KEY = 'ibra_admin_products';
@@ -782,7 +1010,7 @@ $('#csvBtn').addEventListener('click', () => {
   download('orders.csv', ['Order,Customer,Date,Total,Status', ...acctList.map(o => [o.id, o.customer, o.date, o.total, o.status].map(q).join(','))].join('\n'), 'text/csv');
 });
 
-renderSettings(); setSettingsState('info', 'Loading settings...'); renderSite(); refresh(); applyLogo(); route();
+renderSettings(); setSettingsState('info', 'Loading settings...'); refresh(); applyLogo(); route();
 ensureAdminSession().then(() => Promise.all([loadSettings(), loadAdminProducts(), loadOrders(), loadCustomers()])).catch(error => {
   if (error && error.status === 401) return backToLogin();
   toast((error && error.message) || 'Could not reach the server. Refresh to try again.');
