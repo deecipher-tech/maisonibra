@@ -190,7 +190,7 @@
     const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
     // Sign-in endpoints are public: a guest has no token yet, and the server issues one after login.
     // Guests have no session (and so no token) when they browse, quote a bag or check out; a signed-in customer's token is still sent.
-    const csrfExempt = ['auth/login', 'auth/register', 'auth/logout', 'public/cart/quote', 'public/orders'].includes(endpoint.split('?')[0]);
+    const csrfExempt = ['auth/login', 'auth/register', 'auth/logout', 'public/cart/quote', 'public/orders', 'public/contact', 'public/newsletter'].includes(endpoint.split('?')[0]);
     let csrfToken = getCsrfToken();
 
     if (!safeMethods.includes(method)) {
@@ -422,6 +422,19 @@
       });
     },
 
+    // PWA settings + version (never cached), contact form, newsletter, customer account
+    getPwa: () =>
+      request(`public/pwa?${withDomain()}`),
+
+    submitContact: payload =>
+      request(`public/contact?${withDomain()}`, { method: 'POST', body: payload }),
+
+    subscribeNewsletter: payload =>
+      request(`public/newsletter?${withDomain()}`, { method: 'POST', body: payload }),
+
+    accountOrders: () =>
+      request('account/orders'),
+
     // Authentication
     login: (email, password) =>
       request('auth/login', {
@@ -543,6 +556,19 @@
         method: 'POST',
         body: { _method: 'DELETE' }
       }),
+
+    // Admin: publish a PWA release (bump = patch | minor | major); inbox + subscribers (API ready, screens come later)
+    releasePwa: (bump = 'patch') =>
+      request('admin/pwa/release', { method: 'POST', body: { bump } }),
+
+    adminMessages: (params = {}) =>
+      request(`admin/messages?${new URLSearchParams(params)}`),
+
+    updateMessage: (id, changes) =>
+      request(`admin/messages/${encodeURIComponent(id)}`, { method: 'POST', body: { ...changes, _method: 'PUT' } }),
+
+    adminSubscribers: (params = {}) =>
+      request(`admin/subscribers?${new URLSearchParams(params)}`),
 
     changePassword: (current_password, new_password) =>
       request('admin/password', {

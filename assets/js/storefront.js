@@ -88,12 +88,14 @@
     });
   }
 
+  const POLICY_LINKS = { shipping: 'shipping.html', returns: 'returns.html', 'privacy policy': 'privacy.html', 'terms & conditions': 'terms.html', 'terms and conditions': 'terms.html' };
   function footerLink(l, social) {
     let url = l.url;
     if (!url) { // Instagram / TikTok / Facebook / X without an address use the links saved in Admin > Settings > Social
       const key = String(l.label || '').trim().toLowerCase();
       url = social[key] || (key === 'twitter' ? social.x : '') || '';
     }
+    if (!url) url = POLICY_LINKS[String(l.label || '').trim().toLowerCase()] || ''; // older saved footers have no address for these
     return url
       ? `<a href="${esc(url)}"${targetAttr(url)}>${esc(l.label)}</a>`
       : `<a href="#top" data-soon="${esc(l.label)} is coming soon.">${esc(l.label)}</a>`;
@@ -146,8 +148,10 @@
       const slugs = String(category || '').split(',').map(s => s.trim()).filter(Boolean);
       const lists = (slugs.length ? slugs : ['']).map(slug =>
         MaisonApi.getProducts(Object.assign({ page: 1, per_page: max }, slug ? { category: slug } : {}))
-          .then(d => (d.products || []).map(apiProductToCard)).catch(() => []));
-      productCache.set(key, Promise.all(lists).then(all => { // several categories are interleaved so each is represented
+          .then(d => (d.products || []).map(apiProductToCard)).catch(() => null));
+      productCache.set(key, Promise.all(lists).then(results => { // several categories are interleaved so each is represented
+        if (results.every(l => l === null)) throw new Error('The products could not be loaded.'); // every request failed: let the caller offer a retry
+        const all = results.map(l => l || []);
         const out = [], seen = new Set();
         for (let i = 0; out.length < max && all.some(l => i < l.length); i++) {
           all.forEach(l => { const p = l[i]; if (p && out.length < max && !seen.has(p.id)) { seen.add(p.id); out.push(p); } });
@@ -165,7 +169,18 @@
     show(sec, cfg.visible !== false);
     if (cfg.visible === false) return;
     const mine = grid._sfToken = ++token;
-    const list = await sectionProducts(cfg.category, cfg.max || 4);
+    const ld = Ui.loading(grid, Ui.sk.cards(cfg.max || 4), { delay: 120 });
+    let list;
+    try { list = await sectionProducts(cfg.category, cfg.max || 4); }
+    catch (err) {
+      productCache.delete((cfg.category || '') + '|' + (cfg.max || 4));
+      await ld.end();
+      if (grid._sfToken !== mine) return;
+      grid.innerHTML = Ui.errorBox(err, { title: 'We could not load these products' }); show(sec, true);
+      Ui.onRetry(grid, () => fillProducts(gridSel, secSel, cfg));
+      return;
+    }
+    await ld.end();
     if (grid._sfToken !== mine) return; // a newer render replaced this one
     grid.innerHTML = list.map(p => card(view(p))).join('');
     show(sec, list.length > 0);
@@ -290,6 +305,45 @@
     if (list) list.innerHTML = shown.map(i => `<details><summary>${esc(i.q)}</summary><p>${esc(i.a).replace(/\n/g, '<br>')}</p></details>`).join('');
   }
 
+  /* ------------------------------------------------------------ policy pages (shipping, returns, privacy, terms) */
+  function richText(src, tokens) {
+    const text = String(src || '').replace(/\{(\w+)\}/g, (m, k) => (k in tokens ? tokens[k] : m));
+    return text.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).map(block => {
+      let html = '', para = [], list = [];
+      const flush = () => {
+        if (para.length) { html += `<p>${para.join('<br>')}</p>`; para = []; }
+        if (list.length) { html += `<ul>${list.map(i => `<li>${i}</li>`).join('')}</ul>`; list = []; }
+      };
+      block.split('\n').forEach(l => {
+        if (/^##\s+/.test(l)) { flush(); html += `<h2>${esc(l.replace(/^##\s+/, ''))}</h2>`; }
+        else if (/^-\s+/.test(l)) { if (para.length) flush(); list.push(esc(l.replace(/^-\s+/, ''))); }
+        else { if (list.length) flush(); para.push(esc(l)); }
+      });
+      flush();
+      return html;
+    }).join('');
+  }
+
+  function renderPolicy(root, pages, data) {
+    const key = root.dataset.page, p = (pages || {})[key];
+    if (!p) return;
+    const settings = data.settings || {}, contact = settings.contact || {}, delivery = settings.delivery || {}, name = data.name || 'MAISON IBRA';
+    const tokens = {
+      store: name,
+      email: contact.email || contact.supportEmail || 'our contact page',
+      delivery_summary: window.Ui ? Ui.deliverySentence(delivery, data.currency) : '',
+      delivery_estimate: delivery.estimate || 'We confirm the delivery time once your payment has been verified.'
+    };
+    const fill = v => String(v || '').replace(/\{(\w+)\}/g, (m, k) => (k in tokens ? tokens[k] : m));
+    setSeo(p.seo && (p.seo.title || p.seo.description) ? p.seo : { title: `${p.title} | ${name}` });
+    text(q('#policyTitle', root), p.title);
+    const intro = q('#policyIntro', root); text(intro, fill(p.intro)); show(intro, !!p.intro);
+    const upd = q('#policyUpdated', root); text(upd, p.updated ? `Last updated: ${p.updated}` : ''); show(upd, !!p.updated);
+    const body = q('#policyBody', root);
+    body.innerHTML = richText(p.body, tokens) || '<p>This page has no content yet.</p>';
+    body.removeAttribute('aria-busy');
+  }
+
   function apply(data) {
     const sf = data.storefront;
     if (!sf) return;
@@ -298,6 +352,8 @@
     if (q('#signatureGrid')) renderHome(sf.home || {});
     else if (q('#h-phil')) renderAbout(sf.about || {});
     else if (q('#contactForm')) renderContact(sf.contact || {}, data.settings || {});
+    else if (q('#policyRoot')) renderPolicy(q('#policyRoot'), sf.pages, data);
+    document.documentElement.classList.remove('sf-pending');
     document.dispatchEvent(new CustomEvent('maison:storefront', { detail: sf }));
   }
 
@@ -309,9 +365,19 @@
   MaisonApi.getStore().then(res => {
     const s = res.store || {}, st = s.settings || {};
     if (!s.storefront) return;
-    const data = { name: s.name, storefront: s.storefront, settings: { contact: st.contact || {}, social: st.social || {} } };
+    const data = { name: s.name, currency: s.currency, storefront: s.storefront, settings: { contact: st.contact || {}, social: st.social || {}, delivery: st.delivery || {} } };
     const same = cached && JSON.stringify(cached) === JSON.stringify(data);
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch (err) {}
     if (!same) apply(data);
-  }).catch(err => console.warn(err.message || err));
+  }).catch(err => {
+    console.warn(err.message || err);
+    document.documentElement.classList.remove('sf-pending');
+    const root = q('#policyRoot');
+    if (root && !cached) { // no saved copy and no network: say so, with a retry
+      const body = q('#policyBody', root);
+      body.innerHTML = window.Ui ? Ui.errorBox(err, { title: 'We could not load this page' }) : '<p>This page could not be loaded.</p>';
+      body.removeAttribute('aria-busy');
+      if (window.Ui) Ui.onRetry(body, () => location.reload());
+    }
+  });
 })();

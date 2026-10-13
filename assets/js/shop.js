@@ -30,12 +30,14 @@ function renderChips() {
 
 async function load(scrollToTop = false) {
   const seq = ++loadSeq;
-  grid.setAttribute('aria-busy', 'true'); grid.style.opacity = '.45';
+  grid.setAttribute('aria-busy', 'true'); grid.style.opacity = '.45'; // old results dim at once; a skeleton replaces them if the wait is noticeable
+  const ld = Ui.loading(grid, Ui.sk.cards(Ui.sk.count(2)));
   const params = { page, per_page: PER_PAGE, sort: sortSel.value };
   const category = sub || (filter !== 'all' ? filter : '');
   if (category) params.category = category;
   try {
     const data = await MaisonApi.getProducts(params);
+    await ld.end();
     if (seq !== loadSeq) return; // a newer request replaced this one
     const pg = data.pagination;
     page = pg.page; // the server clamps out-of-range pages
@@ -50,9 +52,10 @@ async function load(scrollToTop = false) {
     observeReveals();
     if (scrollToTop) $('.toolbar').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (error) {
+    await ld.end();
     if (seq !== loadSeq) return;
-    grid.innerHTML = ''; count.textContent = ''; pager.hidden = true;
-    empty.textContent = "We couldn't load the products right now. Please try again."; empty.hidden = false;
+    grid.innerHTML = Ui.errorBox(error, { title: 'We could not load the products' }); count.textContent = ''; pager.hidden = true; empty.hidden = true;
+    Ui.onRetry(grid, () => load());
   } finally {
     if (seq === loadSeq) { grid.removeAttribute('aria-busy'); grid.style.opacity = ''; }
   }

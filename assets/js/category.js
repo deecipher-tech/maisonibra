@@ -26,8 +26,10 @@ function renderCategoryChips() {
 async function renderCategory(scrollToTop = false) {
   const seq = ++cSeq;
   cGrid.setAttribute('aria-busy', 'true'); cGrid.style.opacity = '.45';
+  const ld = Ui.loading(cGrid, Ui.sk.cards(Ui.sk.count(2)));
   try {
     const data = await MaisonApi.getProducts({ category: cSub || cType, page: cPage, per_page: PER_PAGE, sort: cSort.value });
+    await ld.end();
     if (seq !== cSeq) return;
     const pg = data.pagination;
     cPage = pg.page;
@@ -42,9 +44,10 @@ async function renderCategory(scrollToTop = false) {
     observeReveals();
     if (scrollToTop) $('.toolbar').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (error) {
+    await ld.end();
     if (seq !== cSeq) return;
-    cGrid.innerHTML = ''; cCount.textContent = ''; cPager.hidden = true;
-    cEmpty.textContent = "We couldn't load the products right now. Please try again."; cEmpty.hidden = false;
+    cGrid.innerHTML = Ui.errorBox(error, { title: 'We could not load the products' }); cCount.textContent = ''; cPager.hidden = true; cEmpty.hidden = true;
+    Ui.onRetry(cGrid, () => renderCategory());
   } finally {
     if (seq === cSeq) { cGrid.removeAttribute('aria-busy'); cGrid.style.opacity = ''; }
   }

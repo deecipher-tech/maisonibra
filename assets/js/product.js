@@ -9,8 +9,8 @@
     return;
   }
 
-  root.innerHTML = '<div class="pdp-empty"><p class="label">Loading</p><h1>Loading product...</h1></div>';
-
+  async function load() {
+  const ld = Ui.loading(root, Ui.sk.pdp(), { reserve: false, delay: 120 });
   try {
     let product;
     if (window.MaisonApi?.getProduct) {
@@ -21,6 +21,7 @@
       product = PRODUCTS.find(x => x.id === slug);
     }
 
+    await ld.end();
     if (!product) {
       renderEmpty('Product not found', 'This product may have moved or no longer exists.');
       return;
@@ -28,8 +29,13 @@
 
     renderProduct(product);
   } catch (error) {
-    renderEmpty('Product not found', error.message || 'This product could not be loaded.');
+    await ld.end();
+    if (error.status === 404) renderEmpty('Product not found', 'This product may have moved or no longer exists.');
+    else { root.innerHTML = Ui.errorBox(error, { title: 'We could not load this product' }); }
+  } finally { root.removeAttribute('aria-busy'); }
   }
+  Ui.onRetry(root, load);
+  load();
 
   function renderEmpty(title, message) {
     root.innerHTML = `<div class="pdp-empty"><h1>${esc(title)}</h1><p>${esc(message)}</p><a class="btn btn-dark" href="shop.html">Back to shop</a></div>`;
@@ -65,7 +71,7 @@
           </div>
           <div class="accordion">${specs}
             <details open><summary>Product details</summary><p>${esc(p.fullDesc || p.details || p.desc)}</p></details>
-            <details><summary>Delivery &amp; returns</summary><p>Complimentary delivery on orders above ₦150,000.</p></details>
+            <details><summary>Delivery &amp; returns</summary><p id="pdpDelivery"><span class="sk sk-line w80"></span></p><p><a href="shipping.html">Shipping</a> &middot; <a href="returns.html">Returns</a></p></details>
           </div>
         </div>
       </div>`;
@@ -86,6 +92,9 @@
       showToast(on ? 'Saved to your wishlist.' : 'Removed from your wishlist.');
     });
 
+    MaisonApi.getStore().then(d => { const s = d.store || {}; const el = $('#pdpDelivery'); if (el) el.textContent = Ui.deliverySentence((s.settings || {}).delivery, s.currency) + ((s.settings || {}).delivery && s.settings.delivery.estimate ? ' ' + s.settings.delivery.estimate : ''); })
+      .catch(() => { const el = $('#pdpDelivery'); if (el) el.textContent = 'Delivery details are shown at checkout.'; });
+
     loadRelated(p);
   }
 
@@ -94,6 +103,8 @@
   async function loadRelated(p) {
     const section = $('#related'), grid = $('#relatedGrid');
     const picked = [], seen = new Set([p.id]);
+    const reveal = setTimeout(() => { section.hidden = false; }, 150); // only show the placeholder row if the wait is noticeable
+    const ld = Ui.loading(grid, Ui.sk.cards(4), { delay: 150 });
     const take = data => (data.products || []).map(apiProductToCard).forEach(x => {
       if (picked.length < 4 && !seen.has(x.id)) { seen.add(x.id); picked.push(x); }
     });
@@ -104,6 +115,8 @@
     } catch (error) {
       console.warn(error.message || error);
     }
+    clearTimeout(reveal);
+    await ld.end();
     if (!picked.length) { section.hidden = true; return; }
     grid.innerHTML = picked.map(x => card(view(x))).join('');
     section.hidden = false;

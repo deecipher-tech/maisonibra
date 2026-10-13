@@ -82,6 +82,7 @@ async function loadCurrentAccount() {
   document.querySelectorAll('a[aria-label="Account"]').forEach(link => {
     link.setAttribute('aria-label', `Account, signed in as ${customer.name}`);
     link.title = `Signed in as ${customer.name}`;
+    link.setAttribute('href', './account.html');
   });
   document.dispatchEvent(new CustomEvent('maison:account', { detail: window.MaisonAccount.current }));
 }
@@ -247,8 +248,8 @@ function renderCartView(body, foot) {
   if (!q) {
     body.innerHTML = notice + (Bag.quoteState === 'error'
       ? `<div class="bag-empty"><p>${esc(Bag.quoteError)}</p><button class="btn" type="button" data-bag-retry>Try again</button></div>`
-      : '<p class="bag-loading" role="status">Loading your bag...</p>');
-    foot.innerHTML = ''; return;
+      : '<span class="sr" role="status">Loading your bag</span>' + Ui.sk.bagLines(Cart.items.length));
+    foot.innerHTML = Bag.quoteState === 'error' ? '' : Ui.sk.bagFoot(); return;
   }
   const stale = Bag.quoteState === 'error' ? `<p class="bag-notice" role="alert">${esc(Bag.quoteError)} <button class="bag-link" type="button" data-bag-retry>Retry</button></p>` : '';
   body.innerHTML = notice + stale + `<ul class="bag-lines">${q.lines.map(l => lineHTML(l, q.currency)).join('')}</ul>`;
@@ -317,7 +318,7 @@ async function loadAccounts() {
 function renderBankSection() {
   const host = $('#coBanks'); if (!host) return;
   const q = Bag.quote;
-  if (Bag.accountsState === 'loading') host.innerHTML = '<p class="co-hint" role="status">Loading bank details...</p>';
+  if (Bag.accountsState === 'loading') host.innerHTML = '<span class="sr" role="status">Loading bank details</span>' + Ui.sk.banks(2);
   else if (Bag.accountsState === 'error') host.innerHTML = '<p class="co-error">We could not load the payment details.</p><button class="btn" type="button" data-bag-accounts>Try again</button>';
   else if (!Bag.accounts?.length) host.innerHTML = '<p class="co-error">Bank transfer details are not available right now. Please contact the store to complete your order.</p>';
   else host.innerHTML = `<p class="co-hint">Transfer <strong>${fmtMoney(q?.total, q?.currency)}</strong> to one of the accounts below, then confirm your payment.</p><ul class="co-banks">${Bag.accounts.map(a => `<li><p class="co-bank">${esc(a.bank)}</p><dl><div><dt>Account name</dt><dd>${esc(a.name)}</dd></div><div><dt>Account number</dt><dd class="co-num">${esc(a.number)}<button class="co-copy" type="button" data-copy="${esc(a.number)}">Copy</button></dd></div></dl></li>`).join('')}</ul>`;
@@ -493,19 +494,28 @@ const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.
 const observeReveals = () => document.querySelectorAll('.reveal:not(.in)').forEach(el => io ? io.observe(el) : el.classList.add('in'));
 observeReveals();
 
-/* ---------- Newsletter (wire to your email provider in submit handler) ---------- */
-$('#newsForm')?.addEventListener('submit', e => {
+/* ---------- Newsletter: stored in the `subscribers` table; duplicates are recognised by the server ---------- */
+$('#newsForm')?.addEventListener('submit', async e => {
   e.preventDefault();
-  const input = $('#email'), msg = $('#formMsg');
+  const form = e.currentTarget, input = $('#email'), msg = $('#formMsg'), btn = form.querySelector('button[type=submit]');
+  const say = (text, kind) => { msg.textContent = text; msg.className = 'form-msg' + (kind ? ' is-' + kind : ''); };
   if (!input.checkValidity() || !input.value.trim()) {
-    msg.textContent = 'Enter a valid email address.';
+    say('Enter a valid email address.', 'error');
     input.setAttribute('aria-invalid', 'true');
     return input.focus();
   }
   input.removeAttribute('aria-invalid');
-  // TODO: POST input.value to your newsletter provider here.
-  msg.textContent = (window.MaisonStorefront && window.MaisonStorefront.global && window.MaisonStorefront.global.newsletter && window.MaisonStorefront.global.newsletter.success) || 'Thank you. You are on the list.';
-  input.value = '';
+  say('');
+  await Ui.run(btn, 'Subscribing...', async () => {
+    try {
+      const res = await MaisonApi.subscribeNewsletter({ email: input.value.trim(), source: 'footer', website: form.elements.website ? form.elements.website.value : '' });
+      say(res.message || 'Thank you. You are on the list.', res.status === 'already_subscribed' ? '' : 'ok');
+      if (res.status !== 'already_subscribed') input.value = '';
+    } catch (error) {
+      input.setAttribute('aria-invalid', 'true');
+      say((error.details && error.details.email) || Ui.errorText(error), 'error');
+    }
+  });
 });
 
 const logoImg = $('.logo img');

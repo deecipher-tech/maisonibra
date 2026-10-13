@@ -24,6 +24,17 @@ const CATS = { perfume: 'Perfume', skincare: 'Skincare', makeup: 'Makeup' };
 const ORDERS = [];                                  // filled from the API by loadOrders(): { id (order no.), dbId, customer, email, phone, date:'YYYY-MM-DD', total, status, payment, fulfilment, receipt }
 const customerSummary = { total: 0, active: 0, disabled: 0 }; // filled by loadCustomers()
 
+/* ---------- Loading skeletons and error states (tables, stats, forms) ---------- */
+const skRows = (cols, n = 5) => Array.from({ length: n }, () => `<tr class="sk-row" aria-hidden="true">${Array.from({ length: cols }, (_, i) => `<td><span class="sk sk-line" style="width:${i === 0 ? '75%' : '55%'}"></span></td>`).join('')}</tr>`).join('');
+const skGroups = n => Array.from({ length: n }, () => '<div class="card sk-group" aria-hidden="true"><span class="sk sk-line" style="width:30%;height:22px"></span></div>').join('');
+const skClear = id => { const e = $(id); if (e) e.classList.remove('sk', 'sk-inline'); };
+function tableState(bodySel, cols, message, retry) {
+  const body = $(bodySel); if (!body) return;
+  body.innerHTML = `<tr><td colspan="${cols}"><div class="empty"><strong>${esc(message)}</strong><br><button type="button" class="btn btn-ghost" data-tbl-retry style="margin-top:12px">Try again</button></div></td></tr>`;
+  const b = $('[data-tbl-retry]', body); if (b) b.onclick = () => { b.disabled = true; retry(); };
+}
+let ordersLoaded = false, customersLoaded = false, catsLoaded = false;
+
 /* ---------- Navigation ---------- */
 const TITLES = { dashboard: 'Dashboard', products: 'Products', categories: 'Categories & Sub-categories', orders: 'Orders', customers: 'Customers', account: 'Account', storefront: 'Storefront', settings: 'Settings' };
 const side = $('#side'), scrim = $('#scrim'), burger = $('#burger');
@@ -60,6 +71,8 @@ function applyLogo() {
 }
 $('#logout').addEventListener('click', async e => {
   e.preventDefault();
+  if (e.currentTarget.dataset.busy) return;
+  setBusy(e.currentTarget, true, 'Signing out...');
   try { if (window.MaisonApi) await MaisonApi.logout(); } catch (error) {}
   sessionStorage.removeItem(SESSION_KEY);
   location.replace('../login.html');
@@ -87,9 +100,15 @@ const T = (k, label, o = {}) => ({ k, label, ...o });
 function fieldHTML(f, obj) {
   const v = getp(obj, f.k) ?? f.d ?? '', id = 'f_' + f.k.replace(/\./g, '_'), p = `data-path="${f.k}"`;
   if (f.type === 'toggle') return `<div class="field"><label class="switch"><input type="checkbox" id="${id}" ${p} ${v === 'on' ? 'checked' : ''}><span class="knob"></span><span>${esc(f.label)}</span></label>${f.hint ? `<p class="hint">${esc(f.hint)}</p>` : ''}</div>`;
-  if (f.type === 'image') return `<div class="field"><label for="${id}">${esc(f.label)}</label><div class="img-row"><img src="${esc(adminAsset(v))}" alt="" ${v ? '' : 'hidden'}><input type="text" id="${id}" ${p} value="${esc(v)}" placeholder="Path, URL or upload" /><button type="button" class="btn btn-ghost" data-upload>Upload</button><input type="file" accept="image/*" hidden></div></div>`;
-  const input = f.type === 'textarea' ? `<textarea id="${id}" ${p} rows="3">${esc(v)}</textarea>` : `<input id="${id}" ${p} type="${f.type === 'number' ? 'number' : 'text'}" value="${esc(v)}" ${f.type === 'number' ? 'min="1" max="24"' : ''}>`;
-  return `<div class="field"><label for="${id}">${esc(f.label)}</label>${input}</div>`;
+  if (f.type === 'image') return `<div class="field"><label for="${id}">${esc(f.label)}</label><div class="img-row"><img src="${esc(adminAsset(v))}" alt="" ${v ? '' : 'hidden'}><input type="text" id="${id}" ${p} value="${esc(v)}" placeholder="Path, URL or upload" /><button type="button" class="btn btn-ghost" data-upload>Upload</button><input type="file" accept="image/*" hidden></div>${f.hint ? `<p class="hint">${esc(f.hint)}</p>` : ''}</div>`;
+  const hint = f.hint ? `<p class="hint">${esc(f.hint)}</p>` : '';
+  let input;
+  if (f.type === 'textarea') input = `<textarea id="${id}" ${p} rows="${f.rows || 3}">${esc(v)}</textarea>`;
+  else if (f.type === 'money') input = `<input id="${id}" ${p} data-raw type="number" inputmode="decimal" step="${f.step || '0.01'}" min="0" value="${esc(v)}">`;
+  else if (f.type === 'color') input = `<input id="${id}" ${p} type="color" value="${esc(/^#[0-9a-f]{6}$/i.test(v) ? v : (f.d || '#000000'))}" style="padding:3px;height:42px;max-width:120px">`;
+  else if (f.type === 'select') input = `<select id="${id}" ${p}>${f.options.map(([val, label]) => `<option value="${esc(val)}" ${val === v ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select>`;
+  else input = `<input id="${id}" ${p} type="${f.type === 'number' ? 'number' : 'text'}" value="${esc(v)}" ${f.type === 'number' ? 'min="1" max="24"' : ''}>`;
+  return `<div class="field"><label for="${id}">${esc(f.label)}</label>${input}${hint}</div>`;
 }
 function bindImages(root, upload) {
   // upload(file) -> Promise<{ url }>: when given, the file is uploaded to the server and its URL is used.
@@ -116,7 +135,7 @@ function bindImages(root, upload) {
   root.addEventListener('input', e => { if (e.target.type === 'text' && e.target.parentElement.classList.contains('img-row')) { const i = e.target.parentElement.querySelector('img'); i.src = adminAsset(e.target.value); i.hidden = !e.target.value; } });
 }
 function collect(root, obj) {
-  $$('[data-path]', root).forEach(el => setp(obj, el.dataset.path, el.type === 'checkbox' ? (el.checked ? 'on' : 'off') : el.type === 'number' ? Math.max(1, Math.min(24, +el.value || 1)) : el.value.trim()));
+  $$('[data-path]', root).forEach(el => setp(obj, el.dataset.path, el.type === 'checkbox' ? (el.checked ? 'on' : 'off') : el.type === 'number' && el.dataset.raw === undefined ? Math.max(1, Math.min(24, +el.value || 1)) : el.value.trim()));
   return obj;
 }
 
@@ -124,9 +143,20 @@ function collect(root, obj) {
 const SETTINGS = {
   general: [T('general.appName', 'App name', { d: 'MAISON IBRA' }), T('general.currency', 'Currency symbol', { d: '₦' }), T('general.status', 'Platform is live', { type: 'toggle', d: 'on', hint: 'Turn off to show visitors a "back soon" page. You can still use this admin.' }), T('general.logo', 'Logo', { type: 'image' }), T('general.favicon', 'Favicon', { type: 'image' })],
   contact: [T('contact.email', 'Email address'), T('contact.supportEmail', 'Support email'), T('contact.phone', 'Phone number'), T('contact.whatsapp', 'WhatsApp number'), T('contact.address', 'Address', { type: 'textarea' }), T('contact.hours', 'Opening hours')],
+  delivery: [T('delivery.fee', 'Delivery fee', { type: 'money', hint: 'Added to every order at checkout. Leave 0 for free delivery.' }), T('delivery.free_threshold', 'Free delivery from', { type: 'money', hint: 'Orders with a subtotal at or above this amount ship free. 0 turns the threshold off.' }), T('delivery.estimate', 'Delivery time note', { hint: 'Shown on the shipping and product pages, for example "2 to 5 working days".' })],
+  pwa: [
+    T('pwa.name', 'App name', { hint: 'The full name shown when installing and on the splash screen.' }), T('pwa.short_name', 'Short name', { hint: 'Shown under the home-screen icon. About 12 characters fit.' }),
+    T('pwa.description', 'Description', { type: 'textarea' }),
+    T('pwa.theme_color', 'Theme color', { type: 'color', d: '#070605', hint: 'Colors the browser bar and app title bar.' }), T('pwa.background_color', 'Background color', { type: 'color', d: '#070605', hint: 'Shown while the app opens.' }),
+    T('pwa.display', 'Display mode', { type: 'select', d: 'standalone', options: [['standalone', 'App window (recommended)'], ['minimal-ui', 'App window with browser controls'], ['fullscreen', 'Full screen']] }),
+    T('pwa.icon_192', 'App icon 192 x 192 (PNG)', { type: 'image' }), T('pwa.icon_512', 'App icon 512 x 512 (PNG)', { type: 'image' }),
+    T('pwa.icon_maskable', 'Adaptive icon 512 x 512 (PNG)', { type: 'image', hint: 'Keep the logo inside the centre 80% so Android can crop it to any shape. Optional.' }),
+    T('pwa.install_enabled', 'Show the install popup', { type: 'toggle', d: 'on' }), T('pwa.install_delay', 'Show it after (seconds on the site)', { type: 'money', step: '1', d: '60' }),
+    T('pwa.install_title', 'Popup title', { hint: 'Use {name} for the app name.' }), T('pwa.install_text', 'Popup text', { type: 'textarea' })
+  ],
   social: [T('social.instagram', 'Instagram URL'), T('social.tiktok', 'TikTok URL'), T('social.facebook', 'Facebook URL'), T('social.x', 'X (Twitter) URL'), T('social.whatsapp', 'WhatsApp link')]
 };
-const STABS = [['general', 'General'], ['payments', 'Payments'], ['contact', 'Contact'], ['social', 'Social'], ['security', 'Security']];
+const STABS = [['general', 'General'], ['payments', 'Payments'], ['delivery', 'Delivery'], ['pwa', 'App (PWA)'], ['contact', 'Contact'], ['social', 'Social'], ['security', 'Security']];
 let banks = [], settingsLoaded = false, activeTab = 'general';
 
 const RX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/, RX_URL = /^https?:\/\/\S+$/i, RX_PHONE = /^[0-9+()\-\s]{6,30}$/, RX_MEDIA = /^(https?:\/\/|\.\/)\S*$/i;
@@ -142,6 +172,14 @@ function checkSection(section, d) {
     ['phone', 'whatsapp'].forEach(k => { if (d[k] && !RX_PHONE.test(d[k])) e[`contact.${k}`] = 'Use digits, spaces, +, - and brackets only (6-30 characters).'; });
   } else if (section === 'social') {
     Object.keys(d).forEach(k => { if (d[k] && !RX_URL.test(d[k])) e[`social.${k}`] = 'Enter a full link starting with http:// or https://.'; });
+  } else if (section === 'delivery') {
+    ['fee', 'free_threshold'].forEach(k => { if (d[k] !== '' && (isNaN(+d[k]) || +d[k] < 0)) e[`delivery.${k}`] = 'Enter a number from 0 upwards.'; });
+  } else if (section === 'pwa') {
+    if (!d.name) e['pwa.name'] = 'App name is required.';
+    if (!d.short_name) e['pwa.short_name'] = 'Short name is required.';
+    ['theme_color', 'background_color'].forEach(k => { if (!/^#[0-9a-f]{6}$/i.test(d[k] || '')) e[`pwa.${k}`] = 'Choose a color.'; });
+    ['icon_192', 'icon_512', 'icon_maskable'].forEach(k => { if (d[k] && !RX_MEDIA.test(d[k])) e[`pwa.${k}`] = 'Upload an image, or use a relative path or an http(s) URL.'; });
+    if (!/^\d+$/.test(String(d.install_delay)) || +d.install_delay < 10 || +d.install_delay > 3600) e['pwa.install_delay'] = 'Enter 10 to 3600 seconds.';
   } else if (section === 'banks') {
     d.forEach((b, i) => {
       if (!b.bank) e[`banks.${i}.bank`] = 'Enter the bank name.';
@@ -159,7 +197,12 @@ function showFormErrors(form, errors, fallback = '') {
   if (box) box.textContent = keys.length ? errors[keys[0]] : fallback;
   if (keys.length) $(errTarget(keys[0]), form)?.focus();
 }
-const setBusy = (btn, on, text) => { if (!btn) return; if (on) { btn.dataset.label = btn.textContent; btn.textContent = text; } else if (btn.dataset.label) btn.textContent = btn.dataset.label; btn.disabled = on; };
+const setBusy = (btn, on, text) => {
+  if (!btn) return;
+  if (on) { if (btn.dataset.busy) return; btn.dataset.busy = '1'; btn.dataset.label = btn.textContent; btn.textContent = text; btn.classList.add('is-loading'); btn.setAttribute('aria-busy', 'true'); }
+  else { delete btn.dataset.busy; if (btn.dataset.label) btn.textContent = btn.dataset.label; btn.classList.remove('is-loading'); btn.removeAttribute('aria-busy'); }
+  btn.disabled = on;
+};
 function backToLogin() { sessionStorage.removeItem(SESSION_KEY); location.replace('../login.html'); }
 
 function setSettingsState(kind, text, retry = false) {
@@ -168,7 +211,8 @@ function setSettingsState(kind, text, retry = false) {
   $('#settingsStateText').textContent = text || '';
   $('#settingsRetry').hidden = !retry;
   panels.toggleAttribute('inert', !settingsLoaded); // nothing can be saved until the real values have loaded
-  panels.style.opacity = settingsLoaded ? '' : '.55';
+  panels.classList.toggle('is-skeleton', !settingsLoaded && kind !== 'error');
+  panels.style.opacity = settingsLoaded || kind !== 'error' ? '' : '.55';
 }
 async function loadSettings() {
   if (!window.MaisonApi) return;
@@ -194,12 +238,17 @@ function bankRows() {
 }
 function readBanks() { $$('[data-bank]').forEach(el => { const [i, k] = el.dataset.bank.split('.'); if (banks[i]) banks[i][k] = el.type === 'checkbox' ? el.checked : el.value.trim(); }); }
 
+function pwaReleaseHTML() {
+  const v = settings.pwa || {}, when = v.released_at ? new Date(v.released_at).toLocaleString() : '';
+  return `<div class="release-card" id="pwaRelease"><div><strong>Installed app version <span id="pwaVer">${esc(v.version || '1.0.0')}</span></strong><p class="hint" id="pwaVerHint">${when ? 'Last published ' + esc(when) + '.' : 'No update has been published yet.'}</p></div><div class="row-btns"><select id="pwaBump" aria-label="Release type"><option value="patch">Small fix (patch)</option><option value="minor">New content (minor)</option><option value="major">Big change (major)</option></select><button type="button" class="btn" id="pwaPublish">Save &amp; publish update</button></div><p class="err" id="pwaRelErr" role="alert"></p><p class="hint">Save changes only updates the name, colors and icons for new installs. Save &amp; publish update also raises the version, so customers who installed the app see "Update available" the next time they open it.</p></div>`;
+}
 function renderSettings() {
   $('#settingsTabs').innerHTML = STABS.map(([k, l]) => `<button type="button" role="tab" id="tab-${k}" aria-controls="panel-${k}" aria-selected="${k === activeTab}" tabindex="${k === activeTab ? 0 : -1}" data-tab="${k}">${l}</button>`).join('');
   const panel = (k, body) => `<div class="card" role="tabpanel" id="panel-${k}" aria-labelledby="tab-${k}" ${k === activeTab ? '' : 'hidden'}>${body}</div>`;
   $('#settingsPanels').innerHTML =
     panel('general', groupForm('general')) +
     panel('payments', `<form class="pform" id="bankForm" novalidate><p class="hint">Bank accounts customers can pay into at checkout. Switch an account off to hide it without deleting it (up to 10 accounts).</p><div id="bankList" class="bank-list"></div><p class="err" id="bankErr" role="alert"></p><div class="actions-row"><button type="button" class="btn btn-ghost" id="addBank">Add bank</button><button class="btn" type="submit">Save banks</button></div></form>`) +
+    panel('delivery', groupForm('delivery')) + panel('pwa', groupForm('pwa') + pwaReleaseHTML()) +
     panel('contact', groupForm('contact')) + panel('social', groupForm('social')) +
     panel('security', `<form class="pform" id="pwForm" novalidate><div class="field"><label for="curPw">Current password</label><input id="curPw" type="password" autocomplete="current-password"></div><div class="field"><label for="newPw">New password</label><input id="newPw" type="password" autocomplete="new-password"></div><div class="field"><label for="newPw2">Confirm new password</label><input id="newPw2" type="password" autocomplete="new-password"></div><p class="err" id="pwErr" role="alert"></p><div><button class="btn" type="submit">Change password</button></div></form>`);
   bankRows();
@@ -262,7 +311,25 @@ $('#settingsPanels').addEventListener('submit', async e => {
     } finally { setBusy(btn, false); }
   }
 });
-$('#settingsPanels').addEventListener('click', e => {
+$('#settingsPanels').addEventListener('click', async e => {
+  const pub = e.target.closest('#pwaPublish');
+  if (pub) {
+    if (!settingsLoaded || pub.dataset.busy) return;
+    const form = $('[data-group="pwa"]'), draft = {}; collect(form, draft);
+    setBusy(pub, true, 'Publishing...'); $('#pwaRelErr').textContent = '';
+    try {
+      if (!(await saveSection(form, null, 'pwa', draft.pwa || {}))) return;
+      const res = await MaisonApi.releasePwa($('#pwaBump').value);
+      settings.pwa = res.pwa || settings.pwa;
+      $('[data-group="pwa"]').outerHTML = groupForm('pwa');
+      $('#pwaRelease').outerHTML = pwaReleaseHTML();
+      toast('Update published. Installed apps will be notified.');
+    } catch (error) {
+      if (error.status === 401) return backToLogin();
+      $('#pwaRelErr').textContent = error.message || 'Could not publish the update.';
+    } finally { setBusy(pub, false); }
+    return;
+  }
   if (e.target.id === 'addBank') {
     if (banks.length >= 10) return toast('You can save up to 10 bank accounts.');
     readBanks(); banks.push({ bank: '', name: '', number: '', active: true }); bankRows();
@@ -414,13 +481,14 @@ function sfSetState(msg, retry = false, error = false) {
 async function sfLoad() {
   if (sfLoading || !window.MaisonApi) return;
   sfLoading = true; sfSetState('Loading storefront...');
+  const host = $('#sfPanels'); if (host && !sf) host.innerHTML = skGroups(4);
   try {
     const data = await MaisonApi.getStorefront();
     sf = data.storefront; sfDefaults = data.defaults; sfDirty = false;
     sfRenderPanels(); sfSetState('');
   } catch (error) {
     if (error.status === 401) return backToLogin();
-    sf = null; sfPaintDirty();
+    sf = null; sfPaintDirty(); if ($('#sfPanels')) $('#sfPanels').innerHTML = '';
     sfSetState((error.message || 'Could not load the storefront.') + ' Saving is disabled until it loads.', true, true);
   } finally { sfLoading = false; }
 }
@@ -554,6 +622,7 @@ async function loadAdminProducts() {
   try {
     const catData = await MaisonApi.adminCategories();
     categories = catData.categories || [];
+    catsLoaded = true;
     renderCategoryOptions();
     renderCategories();
     const data = await MaisonApi.adminProducts();
@@ -568,7 +637,9 @@ async function loadAdminProducts() {
       location.replace('../login.html');
       return;
     }
-    toast(error.message || 'Using local product data.');
+    toast(error.message || 'Could not load the products.');
+    tableState('#productRows', 8, error.message || 'Could not load the products.', loadAdminProducts); $('#productsEmpty').hidden = true;
+    tableState('#categoryRows', 8, 'Could not load the categories.', loadAdminProducts); $('#categoriesEmpty').hidden = true;
   }
 }
 function renderCategoryOptions() {
@@ -604,6 +675,7 @@ function filteredProducts() {
   return list;
 }
 function renderProducts() {
+  if (!apiProductsReady) return; // the skeleton rows stay until the real list arrives
   const list = filteredProducts();
   const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
   productPage = Math.min(productPage, pages);
@@ -677,6 +749,9 @@ form.addEventListener('submit', async e => {
   $('#productErr').textContent = '';
   if (!name) { el('name').setAttribute('aria-invalid', 'true'); $('#productErr').textContent = 'Enter a product name.'; return el('name').focus(); }
   if (!id && !el('cover_image').files[0]) return $('#productErr').textContent = 'Product cover image is required.';
+  const saveBtn = form.querySelector('button[type=submit]');
+  if (saveBtn.dataset.busy) return;
+  setBusy(saveBtn, true, 'Saving...');
   const formData = new FormData(form);
   const specs = $$('.spec-row').map(row => ({ key: row.querySelector('[data-spec-key]').value.trim(), value: row.querySelector('[data-spec-value]').value.trim() })).filter(s => s.key && s.value);
   formData.set('specifications', JSON.stringify(specs));
@@ -696,7 +771,7 @@ form.addEventListener('submit', async e => {
   } catch (error) {
     const d = error.details || {};
     $('#productErr').textContent = d.name || d.slug || d.cover_image || d.short_description || d.full_description || d.price || d.compare_at_price || d.stock_quantity || d.additional_images || error.message || 'Could not save product.';
-  }
+  } finally { setBusy(saveBtn, false); }
 });
 $('#productRows').addEventListener('click', e => {
   const ed = e.target.closest('[data-edit]'), del = e.target.closest('[data-del]');
@@ -740,6 +815,7 @@ function categoryRowHTML(c) {
   return `<tr class="${sub ? 'cat-sub' : ''}"><td><div class="pname">${esc(c.name)}</div>${c.description ? `<div class="pdesc">${esc(c.description)}</div>` : ''}</td><td><span class="cat-slug">${esc(c.slug)}</span></td><td>${sub ? esc(c.parent_name) : 'Top-level'}</td><td>${esc(c.product_count)}</td><td>${sub ? '—' : esc(c.child_count)}</td><td><span class="badge ${c.status === 'hidden' ? 'draft' : ''}">${c.status === 'hidden' ? 'Hidden' : 'Active'}</span></td><td>${esc(c.sort_order)}</td><td><div class="row-btns">${addSub}<button class="act" type="button" data-cat-edit="${c.id}" title="Edit" aria-label="Edit ${esc(c.name)}">${ICON.edit}</button>${del}</div></td></tr>`;
 }
 function renderCategories() {
+  if (!catsLoaded) return;
   const q = $('#catSearch').value.trim().toLowerCase(), st = $('#catStatusFilter').value;
   const nameHit = c => !q || `${c.name} ${c.slug}`.toLowerCase().includes(q), statHit = c => !st || c.status === st;
   const rows = [];
@@ -874,6 +950,7 @@ async function loadCustomers() {
     if (seq !== cuSeq) return; // a newer search replaced this request
     const pg = data.pagination; cuPage = pg.page;
     Object.assign(customerSummary, data.summary);
+    customersLoaded = true;
     paintCustomerSummary();
     $('#customerRows').innerHTML = data.customers.map(c => `<tr><td><div class="pname">${esc(c.name)}</div><div class="pdesc">${esc(c.email)}</div></td><td>${esc(c.phone || '—')}</td><td>${esc(c.order_count)}</td><td>${fmt(c.total_spent)}</td><td>${esc(cuDate(c.last_order_at))}</td><td>${esc(cuDate(c.created_at))}</td><td>${cuBadge(c.status)}</td><td><div class="row-btns"><button class="act" type="button" data-cu-view="${c.id}" title="View" aria-label="View ${esc(c.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></td></tr>`).join('');
     $('#customersEmpty').hidden = data.customers.length > 0;
@@ -884,6 +961,7 @@ async function loadCustomers() {
     if (seq !== cuSeq) return;
     if (error.status === 401) return backToLogin();
     toast(error.message || 'Could not load customers.');
+    tableState('#customerRows', 8, error.message || 'Could not load customers.', loadCustomers); $('#customersEmpty').hidden = true;
   }
 }
 $('#cuSearch').addEventListener('input', () => { clearTimeout(cuTimer); cuTimer = setTimeout(() => { cuPage = 1; loadCustomers(); }, 300); });
@@ -953,10 +1031,12 @@ async function loadOrders() {
       // single status used by the Account report: cancelled / pending (awaiting payment verification) / failed / refunded / else the fulfilment stage
       status: o.fulfillment_status === 'cancelled' ? 'cancelled' : o.payment_status === 'paid' ? o.fulfillment_status : o.payment_status
     }));
+    ordersLoaded = true;
     refresh();
   } catch (error) {
     if (error.status === 401) return backToLogin();
     toast(error.message || 'Could not load orders.');
+    tableState('#orderRows', 7, error.message || 'Could not load orders.', loadOrders); $('#ordersEmpty').hidden = true;
   }
 }
 $('#orderRows').addEventListener('change', async e => {
@@ -971,9 +1051,13 @@ $('#orderRows').addEventListener('change', async e => {
   await loadOrders(); // re-render with what the server stored (also resets the select after a refusal)
 });
 function renderTables() {
+  if (!ordersLoaded) return;
   $('#orderRows').innerHTML = ORDERS.map(orderAdminRow).join(''); $('#ordersEmpty').hidden = ORDERS.length > 0;
 }
 function renderStats() {
+  if (apiProductsReady) { skClear('#sProducts'); skClear('#sActive'); }
+  if (ordersLoaded) skClear('#sOrders');
+  if (customersLoaded) skClear('#sCustomers');
   $('#sProducts').textContent = items.length; $('#sActive').textContent = items.filter(p => p.status === 'active').length;
   $('#sOrders').textContent = ORDERS.length; $('#sCustomers').textContent = customerSummary.total;
 }
@@ -1011,6 +1095,9 @@ $('#csvBtn').addEventListener('click', () => {
 });
 
 renderSettings(); setSettingsState('info', 'Loading settings...'); refresh(); applyLogo(); route();
+// Until the API answers: shimmer on the counters and table rows instead of zeros and "nothing here" messages.
+['#sProducts', '#sActive', '#sOrders', '#sCustomers'].forEach(id => $(id) && $(id).classList.add('sk', 'sk-inline'));
+[['#productRows', 8, '#productsEmpty'], ['#orderRows', 7, '#ordersEmpty'], ['#customerRows', 8, '#customersEmpty'], ['#categoryRows', 8, '#categoriesEmpty']].forEach(([b, c, em]) => { if ($(b)) { $(b).innerHTML = skRows(c); $(b).setAttribute('aria-busy', 'true'); } if ($(em)) $(em).hidden = true; });
 ensureAdminSession().then(() => Promise.all([loadSettings(), loadAdminProducts(), loadOrders(), loadCustomers()])).catch(error => {
   if (error && error.status === 401) return backToLogin();
   toast((error && error.message) || 'Could not reach the server. Refresh to try again.');

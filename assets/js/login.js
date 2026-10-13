@@ -41,6 +41,7 @@ $('#loginForm').addEventListener('submit', async e => {
     if (pw !== $('#pw2').value) return err.textContent = 'The passwords do not match.';
   }
 
+  await Ui.run($('#loginBtn'), mode === 'register' ? 'Creating account...' : 'Signing in...', async () => {
   try {
     if (!window.MaisonApi) throw new Error('API client is not available.');
     const result = mode === 'register'
@@ -65,4 +66,5 @@ $('#loginForm').addEventListener('submit', async e => {
     const details = error.details || {};
     err.textContent = details.email || details.name || details.password || error.message || 'Could not continue.';
   }
+  });
 });
