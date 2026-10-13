@@ -20,11 +20,16 @@
   <link rel="stylesheet" href="./assets/css/styles.css" />
   <link rel="stylesheet" href="./assets/css/shop.css" />
   <link rel="stylesheet" href="./assets/css/about.css" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./assets/icons/icon-192.png" />
+  <link rel="stylesheet" href="./assets/css/ui.css" />
+  <script src="./assets/js/ui.js"></script>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"MAISON IBRA","url":"https://[YOUR-DOMAIN]/","logo":"https://[YOUR-DOMAIN]/assets/images/brand/logo.png"}</script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
-  <div class="announce">Complimentary delivery on orders above ₦150,000</div>
+  <div class="announce"></div>
 
   <header class="site-header header--pill" id="top">
     <button class="icon-btn menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="drawer">
@@ -90,15 +95,15 @@
     <section class="cta-band" aria-labelledby="h-cta">
       <h2 id="h-cta">Experience <span class="gold-text">MAISON IBRA</span></h2>
       <p>Perfume, skincare and makeup, created for those who leave an impression.</p>
-      <div class="cta-row"><a class="btn" href="shop.html">Explore the collection</a><a class="link-light" href="#top" data-soon="Contact page coming soon.">Contact us</a></div>
+      <div class="cta-row"><a class="btn" href="shop.html">Explore the collection</a><a class="link-light" href="contact.html">Contact us</a></div>
     </section>
   </main>
 
   <footer class="footer">
     <div class="foot-grid">
-      <div><h3>Shop</h3><a href="perfumes.html">Perfume</a><a href="skincare.html">Skincare</a><a href="makeup.html">Makeup</a><a href="shop.html">New Arrivals</a><a href="shop.html">Best Sellers</a></div>
-      <div><h3>About</h3><a href="about.html">Our Story</a><a href="index.html#journal">Journal</a><a href="#top" data-soon="Contact page coming soon.">Contact</a><a href="#top" data-soon="FAQs coming soon.">FAQs</a></div>
-      <div><h3>Customer Care</h3><a href="#top" data-soon="Shipping policy coming soon.">Shipping</a><a href="#top" data-soon="Returns policy coming soon.">Returns</a><a href="#top" data-soon="Privacy policy coming soon.">Privacy Policy</a><a href="#top" data-soon="Terms coming soon.">Terms &amp; Conditions</a></div>
+      <div><h3>Shop</h3><a href="category1.html">Perfume</a><a href="category2.html">Skincare</a><a href="category3.html">Makeup</a><a href="shop.html">New Arrivals</a><a href="shop.html">Best Sellers</a></div>
+      <div><h3>About</h3><a href="about.html">Our Story</a><a href="index.html#journal">Journal</a><a href="contact.html">Contact</a><a href="contact.html#faq">FAQs</a></div>
+      <div><h3>Customer Care</h3><a href="shipping.html">Shipping</a><a href="returns.html">Returns</a><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms &amp; Conditions</a></div>
       <div><h3>Follow</h3><a href="#top" data-soon="Add the Instagram URL.">Instagram</a><a href="#top" data-soon="Add the TikTok URL.">TikTok</a><a href="#top" data-soon="Add the Facebook URL.">Facebook</a></div>
     </div>
     <p class="copy">© <span id="year"></span> MAISON IBRA. All Rights Reserved.</p>
@@ -108,5 +113,6 @@
   <script src="./assets/js/api.js"></script>
   <script src="./assets/js/script.js"></script>
   <script src="./assets/js/storefront.js"></script>
+  <script src="./assets/js/pwa.js"></script>
 </body>
 </html>

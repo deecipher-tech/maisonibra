@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#070605" />
+  <title>You are offline</title>
+  <link rel="manifest" href="manifest.json" />
+  <!-- Self-contained on purpose: this page must render with nothing else in the cache. -->
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px; text-align: center; color: #f6efe4; font: 15px/1.65 Inter, system-ui, sans-serif;
+      background: radial-gradient(60% 70% at 70% 30%, rgba(120, 80, 25, .3), transparent 70%), #070605; }
+    main { max-width: 440px; }
+    .ring { width: 72px; height: 72px; margin: 0 auto 24px; border: 1px solid rgba(217, 181, 116, .45); border-radius: 50%; display: grid; place-items: center; }
+    .ring svg { width: 30px; height: 30px; fill: none; stroke: #d9b574; stroke-width: 1.4; stroke-linecap: round; }
+    h1 { margin: 0 0 12px; font: 500 clamp(36px, 8vw, 52px)/1.05 "Cormorant Garamond", Georgia, serif; color: #f3dca6; }
+    p { margin: 0 0 28px; color: #b9b0a2; }
+    .row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+    a, button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 28px; font: 600 11px Inter, system-ui, sans-serif; letter-spacing: .16em; text-transform: uppercase; text-decoration: none; cursor: pointer; border: 1px solid #d9b574; }
+    button { background: linear-gradient(135deg, #f3dca6, #d9b574); color: #000; }
+    a { background: transparent; color: #f3dca6; }
+    button:disabled { opacity: .6; cursor: progress; }
+    :focus-visible { outline: 2px solid #f3dca6; outline-offset: 3px; }
+    .spin { width: 14px; height: 14px; margin-right: 10px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: s .7s linear infinite; }
+    @keyframes s { to { transform: rotate(360deg); } }
+    #msg { min-height: 22px; margin: 18px 0 0; font-size: 13px; color: #d9b574; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="ring"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><path d="M12 19.5v.01M3 3l18 18"/></svg></div>
+    <h1>You are offline</h1>
+    <p>We could not reach the store. Pages you visited recently are still available, and your bag is saved on this device.</p>
+    <div class="row">
+      <button type="button" id="retry">Try again</button>
+      <a href="index.html">Go to home</a>
+    </div>
+    <p id="msg" role="status"></p>
+  </main>
+  <script>
+    (function () {
+      var btn = document.getElementById('retry'), msg = document.getElementById('msg');
+      function go() { location.reload(); }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        btn.disabled = true; btn.innerHTML = '<span class="spin" aria-hidden="true"></span>Checking...';
+        fetch(location.href, { cache: 'no-store' }).then(function () { go(); }).catch(function () {
+          btn.disabled = false; btn.textContent = 'Try again'; msg.textContent = 'Still offline. Check your connection and try again.';
+        });
+      });
+      window.addEventListener('online', go);
+    })();
+  </script>
+</body>
+</html>

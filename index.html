@@ -18,11 +18,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./assets/css/styles.css" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./assets/icons/icon-192.png" />
+  <link rel="stylesheet" href="./assets/css/ui.css" />
+  <script src="./assets/js/ui.js"></script>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"MAISON IBRA","url":"https://[YOUR-DOMAIN]/","logo":"https://[YOUR-DOMAIN]/assets/images/brand/logo.png"}</script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
-  <div class="announce">Complimentary delivery on orders above ₦150,000</div>
+  <div class="announce"></div>
 
   <header class="site-header header--pill" id="top">
     <button class="icon-btn menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="drawer">
@@ -116,7 +121,7 @@
       <div class="story-copy reveal">
         <h2 id="h-story">The MAISON IBRA Story</h2>
         <p>[BRAND STORY — replace with the official story of the Maison: its philosophy, its craft and what it stands for.]</p>
-        <a class="btn btn-dark" href="#top" data-soon="Our story page is coming soon.">Discover our story</a>
+        <a class="btn btn-dark" href="about.html">Discover our story</a>
       </div>
       <div class="ph ph-land" role="img" aria-label="[BRAND IMAGE] MAISON IBRA editorial"><span>[BRAND IMAGE]</span></div>
     </section>
@@ -133,6 +138,7 @@
         <label class="sr" for="email">Your email address</label>
         <input id="email" name="email" type="email" placeholder="Your email address" autocomplete="email" required />
         <button class="btn" type="submit">Subscribe</button>
+        <div class="hp" aria-hidden="true"><label>Leave this empty <input name="website" type="text" tabindex="-1" autocomplete="off" /></label></div>
         <p class="form-msg" id="formMsg" role="status"></p>
       </form>
       <small>By subscribing you agree to receive MAISON IBRA emails. Unsubscribe at any time. See our Privacy Policy.</small>
@@ -142,8 +148,8 @@
   <footer class="footer">
     <div class="foot-grid">
       <div><h3>Shop</h3><a href="#categories">Perfume</a><a href="#beauty">Skincare</a><a href="#beauty">Makeup</a><a href="#collection">New Arrivals</a><a href="#collection">Best Sellers</a></div>
-      <div><h3>About</h3><a href="#story">Our Story</a><a href="#journal">Journal</a><a href="#top" data-soon="Contact page coming soon.">Contact</a><a href="#top" data-soon="FAQs coming soon.">FAQs</a></div>
-      <div><h3>Customer Care</h3><a href="#top" data-soon="Shipping policy coming soon.">Shipping</a><a href="#top" data-soon="Returns policy coming soon.">Returns</a><a href="#top" data-soon="Privacy policy coming soon.">Privacy Policy</a><a href="#top" data-soon="Terms coming soon.">Terms &amp; Conditions</a></div>
+      <div><h3>About</h3><a href="#story">Our Story</a><a href="#journal">Journal</a><a href="contact.html">Contact</a><a href="contact.html#faq">FAQs</a></div>
+      <div><h3>Customer Care</h3><a href="shipping.html">Shipping</a><a href="returns.html">Returns</a><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms &amp; Conditions</a></div>
       <div><h3>Follow</h3><a href="#top" data-soon="Add the Instagram URL.">Instagram</a><a href="#top" data-soon="Add the TikTok URL.">TikTok</a><a href="#top" data-soon="Add the Facebook URL.">Facebook</a></div>
     </div>
     <p class="copy">© <span id="year"></span> MAISON IBRA. All Rights Reserved.</p>
@@ -155,5 +161,6 @@
   <script src="./assets/js/products.js"></script>
   <script src="./assets/js/script.js"></script>
   <script src="./assets/js/storefront.js"></script>
+  <script src="./assets/js/pwa.js"></script>
 </body>
 </html>

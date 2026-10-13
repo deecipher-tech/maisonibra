@@ -1,8 +1,26 @@
 {
   "rewrites": [
     {
+      "source": "/manifest.json",
+      "has": [{ "type": "host", "value": "(?<host>.+)" }],
+      "destination": "https://alimanschoolkeffi.com/DeeCommerce/backend/public/public/manifest?domain=:host"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://alimanschoolkeffi.com/DeeCommerce/backend/public/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
+    {
+      "source": "/(.*).html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
     }
   ]
 }
