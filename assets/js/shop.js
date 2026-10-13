@@ -4,11 +4,10 @@ if (typeof PRODUCTS === 'undefined') throw new Error('shop.js needs products.js 
 
 const PER_PAGE = 12;
 const grid = $('#shopGrid'), count = $('#count'), empty = $('#empty'), sortSel = $('#sort'), subBar = $('#subFilters'), pager = $('#pager');
-const chips = [...document.querySelectorAll('.filters .chip')];
+const filtersEl = document.querySelector('.filters'); // top-level category chips: rebuilt from the API once the category tree arrives
 const emptyText = empty.textContent;
 const qs = new URLSearchParams(location.search);
-let filter = qs.get('category');
-if (!LABELS[filter]) filter = 'all';
+let filter = qs.get('category') || 'all'; // validated against the server's categories once they load
 let sub = qs.get('sub') || '';
 let page = Math.max(1, parseInt(qs.get('page'), 10) || 1);
 let tree = null, loadSeq = 0;
@@ -21,11 +20,17 @@ function setUrl() {
   history.replaceState(null, '', q.toString() ? `shop.html?${q}` : 'shop.html');
 }
 
+const nameOf = slug => ((tree && tree.find(c => c.slug === slug)) || {}).name || LABELS[slug] || slug;
+
 function renderChips() {
+  if (tree && filtersEl) { // every active top-level category from the server, including ones added in Admin
+    const tops = tree.filter(c => !c.parent_slug);
+    filtersEl.innerHTML = [{ slug: 'all', name: 'All' }, ...tops].map(c => `<button class="chip" type="button" data-filter="${Ui.esc(c.slug)}" aria-pressed="${c.slug === filter}">${Ui.esc(c.name)}</button>`).join('');
+  }
   const subs = filter === 'all' || !tree ? [] : tree.filter(c => c.parent_slug === filter).map(c => ({ slug: c.slug, name: c.name, order: c.sort_order, count: c.product_count }));
   const top = tree && tree.find(c => c.slug === filter);
-  renderSubFilters(subBar, subs, sub, filter === 'all' ? 'All' : `All ${LABELS[filter]}`, top ? top.product_count : 0, picked => { sub = picked; page = 1; setUrl(); load(); });
-  chips.forEach(c => c.setAttribute('aria-pressed', c.dataset.filter === filter));
+  renderSubFilters(subBar, subs, sub, filter === 'all' ? 'All' : `All ${nameOf(filter)}`, top ? top.product_count : 0, picked => { sub = picked; page = 1; setUrl(); load(); });
+  filtersEl.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.filter === filter));
 }
 
 async function load(scrollToTop = false) {
@@ -61,11 +66,13 @@ async function load(scrollToTop = false) {
   }
 }
 
-chips.forEach(c => c.addEventListener('click', () => { filter = c.dataset.filter; sub = ''; page = 1; setUrl(); renderChips(); load(); }));
+filtersEl.addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return; filter = c.dataset.filter; sub = ''; page = 1; setUrl(); renderChips(); load(); });
 sortSel.addEventListener('change', () => { page = 1; load(); });
 
 // The category tree (with product counts) drives the sub-category chips; load it first so an invalid ?sub= is dropped.
 MaisonApi.getCategories().then(d => { tree = d.categories || []; }).catch(() => { tree = null; }).then(() => {
+  if (tree) { if (filter !== 'all' && !tree.some(c => !c.parent_slug && c.slug === filter)) { filter = 'all'; sub = ''; } }
+  else if (!LABELS[filter]) filter = 'all'; // categories could not be loaded: fall back to the three built-in chips
   if (tree && sub && !tree.some(c => c.slug === sub && c.parent_slug === filter)) sub = '';
   renderChips();
   load();
