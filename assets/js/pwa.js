@@ -1,7 +1,7 @@
 /* MAISON IBRA - Progressive Web App layer. Load LAST on every public page.
 
    1. Registers sw.js and keeps the manifest, theme colour and Apple icon in step with Admin > Settings > App (PWA).
-   2. Install prompt: shown after the visitor has spent `delay_seconds` (default 10) on the site in total, across pages.
+   2. Install prompt: shown after the visitor has spent `delay_seconds` (default 30) on the site in total, across pages.
         Android / desktop Chromium -> native prompt;  iOS Safari -> step-by-step instructions;  Safari on Mac -> instructions;
         anything else -> nothing is shown (window.MaisonPwa.install() explains politely if called).
       Never shown when already installed or running as an app; "Later" snoozes for 7, then 30, then 90 days.
@@ -32,7 +32,7 @@
   let reg = null;            // service worker registration
   let pending = null;        // { worker, version } waiting to be applied
   let userAskedUpdate = false;
-  const defaults = { name: document.title.split('|')[0].trim() || 'App', short_name: 'App', theme_color: '#070605', icons: { 192: 'assets/icons/icon-192.png', 512: 'assets/icons/icon-512.png' }, install: { enabled: true, delay_seconds: 10, title: '', text: '' } };
+  const defaults = { name: document.title.split('|')[0].trim() || 'App', short_name: 'App', theme_color: '#070605', icons: { 192: 'assets/icons/icon-192.png', 512: 'assets/icons/icon-512.png' }, install: { enabled: true, delay_seconds: 30, title: '', text: '' } };
   const conf = () => cfg || defaults;
 
   /* ---------- dismissal memory ---------- */
@@ -155,7 +155,7 @@
       if (document.visibilityState !== 'visible') return;
       seconds++; tick++;
       if (tick % 5 === 0) ls.set(K.time, String(seconds));
-      if (seconds >= (conf().install.delay_seconds || 10)) maybeShow(timer, seconds);
+      if (seconds >= (conf().install.delay_seconds || 30)) maybeShow(timer, seconds);
     }, 1000);
     addEventListener('pagehide', () => ls.set(K.time, String(seconds)));
   }
